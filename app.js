@@ -22,7 +22,7 @@ const defaultState = {
     announcements: 12
   },
   churches: [
-    { id: 'batesda', name: 'Batesda', city: 'Itaboraí • RJ', initials: 'BT', logoSymbol: 'B', logoImage: '', appearance: { ...DEFAULT_APPEARANCE }, members: 246, status: 'Ativa', plan: 'Essencial' }
+    { id: 'batesda', name: 'Bethesda', city: 'Itaboraí • RJ', initials: 'BE', logoSymbol: 'B', logoImage: 'bethesda-logo.png', appearance: { ...DEFAULT_APPEARANCE }, members: 246, status: 'Ativa', plan: 'Essencial' }
   ],
   visitors: [
     { id: 'v-1', name: 'Ana Clara Nogueira', familyName: 'Família Nogueira', familyMembers: ['Ana Clara Nogueira', 'Paulo Nogueira', 'Lara Nogueira'], arrivalType: 'Família', phone: '(21) 99842-1874', date: '2026-09-02', service: 'Culto de Celebração', neighborhood: 'Centro', invitedBy: 'Mariana Alves', status: 'Novo', responsible: 'Recepção', notes: 'Veio com a família.', consent: true },
@@ -43,8 +43,8 @@ const defaultState = {
     { id: 'e-4', title: 'Café com líderes', date: '2026-09-19', time: '08:30', location: 'Sala de reuniões', type: 'Liderança', audience: 'Lideranças' }
   ],
   receptionUsers: [
-    { id: 'r-1', name: 'Mariana Alves', role: 'Recepção', roleKey: 'reception', churchId: 'batesda', login: 'mariana@batesda.com.br', phone: '(21) 99704-2118', passwordStatus: 'Ativa', status: 'Ativo', lastAccess: 'Hoje, 10:42', permissions: ['acolhimento'], initials: 'MA', tone: 'copper' },
-    { id: 'r-2', name: 'João Pedro', role: 'Obreiro', roleKey: 'reception', churchId: 'batesda', login: 'joao@batesda.com.br', phone: '(21) 99634-1822', passwordStatus: 'Ativa', status: 'Ativo', lastAccess: 'Domingo, 18:21', permissions: ['acolhimento'], initials: 'JP', tone: 'olive' }
+    { id: 'r-1', name: 'Mariana Alves', role: 'Recepção', roleKey: 'reception', churchId: 'batesda', login: 'mariana@bethesda.com.br', phone: '(21) 99704-2118', passwordStatus: 'Ativa', status: 'Ativo', lastAccess: 'Hoje, 10:42', permissions: ['acolhimento'], initials: 'MA', tone: 'copper' },
+    { id: 'r-2', name: 'João Pedro', role: 'Obreiro', roleKey: 'reception', churchId: 'batesda', login: 'joao@bethesda.com.br', phone: '(21) 99634-1822', passwordStatus: 'Ativa', status: 'Ativo', lastAccess: 'Domingo, 18:21', permissions: ['acolhimento'], initials: 'JP', tone: 'olive' }
   ],
   leaders: [
     { id: 'l-1', name: 'Evandro', role: 'Pastor titular', phone: '(21) 99921-4421', group: 'Administração', initials: 'EV', tone: 'gold' },
@@ -94,14 +94,17 @@ function loadState() {
       });
       merged.churches = merged.churches.map(church => ({
         ...church,
-        initials: church.initials || initials(church.name),
+        name: church.id === 'batesda' ? 'Bethesda' : church.name,
+        initials: church.id === 'batesda' ? 'BE' : (church.initials || initials(church.name)),
         logoSymbol: church.logoSymbol || (church.id === 'batesda' ? 'B' : initials(church.name).slice(0, 2)),
-        logoImage: church.logoImage || '',
+        logoImage: church.id === 'batesda' ? 'bethesda-logo.png' : (church.logoImage || ''),
         appearance: { ...DEFAULT_APPEARANCE, ...(church.appearance || {}) }
       }));
       merged.receptionUsers = (merged.receptionUsers || []).map((user, index) => ({
         ...user,
-        login: user.login || `${slugify(user.name)}@${slugify(defaultState.churches[0]?.name || 'igreja')}.com.br`,
+        roleKey: user.roleKey || 'reception',
+        churchId: user.churchId || 'batesda',
+        login: (user.login || `${slugify(user.name)}@${slugify(defaultState.churches[0]?.name || 'igreja')}.com.br`).replace(/@batesda\.com\.br$/i, '@bethesda.com.br'),
         passwordStatus: user.passwordStatus || 'Ativa',
         permissions: Array.isArray(user.permissions) && user.permissions.length ? user.permissions : ['acolhimento']
       }));
@@ -221,7 +224,9 @@ function slugify(value = '') {
   return String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'igreja';
 }
 function receptionLink(church = getActiveChurch()) {
-  return `https://app.plataforma.com/${slugify(church?.name || 'igreja')}/recepcao`;
+  const pathname = window.location?.pathname || '/';
+  const basePath = pathname.endsWith('/') ? pathname : pathname.slice(0, pathname.lastIndexOf('/') + 1);
+  return `${window.location.origin}${basePath}recepcao/`;
 }
 function churchLogoText(church) {
   return String(church?.logoSymbol || (church?.id === 'batesda' ? 'B' : initials(church?.name || 'B'))).trim().slice(0, 2).toUpperCase() || 'B';
@@ -387,12 +392,12 @@ function updateShell() {
   if (current) current.textContent = meta.label;
   const church = getActiveChurch();
   const churchName = $('#activeChurchName');
-  if (churchName) churchName.textContent = church?.name || 'Batesda';
+  if (churchName) churchName.textContent = church?.name || 'Bethesda';
   const sidebarBrandName = $('#sidebarBrandName');
-  if (sidebarBrandName) sidebarBrandName.textContent = church?.name || 'Batesda';
+  if (sidebarBrandName) sidebarBrandName.textContent = church?.name || 'Bethesda';
   const topbarChurchName = $('#topbarChurchName');
-  if (topbarChurchName) topbarChurchName.textContent = church?.name || 'Batesda';
-  document.title = `${church?.name || 'Batesda'} · ${PLATFORM_NAME}`;
+  if (topbarChurchName) topbarChurchName.textContent = church?.name || 'Bethesda';
+  document.title = `${church?.name || 'Bethesda'} · ${PLATFORM_NAME}`;
   const userName = state.currentUser?.name || 'Evandro & Simone';
   const userRole = state.currentUser?.role || 'Pastor da igreja';
   if ($('#sidebarUserName')) $('#sidebarUserName').textContent = userName;
@@ -634,7 +639,7 @@ function openModal(type, data = {}) {
   if (!backdrop || !title || !body) return;
   let content = '';
   let modalTitle = '';
-  let modalEyebrow = 'BATESDA';
+  let modalEyebrow = 'BETHESDA';
   if (type === 'metric') {
     const metric = data.metric;
     if (metric === 'visits') {
@@ -906,7 +911,7 @@ function exportVisitors() {
   const headers = ['Nome principal', 'Família ou grupo', 'Como veio', 'Nomes para anunciar', 'Telefone', 'Data da visita', 'Culto ou evento', 'Bairro', 'Status', 'Responsável'];
   const rows = state.visitors.map(visitor => [visitor.name, visitor.familyName, visitor.arrivalType || 'Sozinho', getFamilyMembers(visitor).join(' | '), visitor.phone, visitor.date, visitor.service, visitor.neighborhood, visitor.status, visitor.responsible]);
   const csv = [headers, ...rows].map(row => row.map(escapeCSV).join(';')).join('\n');
-  downloadBlob(`visitantes-batesda-${TODAY}.csv`, `\ufeff${csv}`, 'text/csv;charset=utf-8;');
+  downloadBlob(`visitantes-${slugify(getActiveChurch()?.name || 'igreja')}-${TODAY}.csv`, `\ufeff${csv}`, 'text/csv;charset=utf-8;');
   showToast('Planilha de visitantes exportada.');
 }
 
@@ -926,7 +931,7 @@ function exportEvents() {
   const headers = ['Evento', 'Data', 'Horário', 'Local', 'Categoria', 'Público'];
   const rows = sortedEvents().map(event => [event.title, event.date, event.time, event.location, event.type, event.audience]);
   const csv = [headers, ...rows].map(row => row.map(escapeCSV).join(';')).join('\n');
-  downloadBlob(`agenda-batesda-${TODAY}.csv`, `\ufeff${csv}`, 'text/csv;charset=utf-8;');
+  downloadBlob(`agenda-${slugify(getActiveChurch()?.name || 'igreja')}-${TODAY}.csv`, `\ufeff${csv}`, 'text/csv;charset=utf-8;');
   showToast('Agenda exportada.');
 }
 

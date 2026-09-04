@@ -1,6 +1,6 @@
 # Emaús — Plataforma da Igreja
 
-Protótipo navegável da Emaús, uma plataforma web/PWA para gestão de visitantes, comunicação, agenda e lideranças. A igreja demonstrada neste protótipo é a Batesda.
+Protótipo navegável da Emaús, uma plataforma web/PWA para gestão de visitantes, comunicação, agenda e lideranças. A igreja demonstrada neste protótipo é a Bethesda.
 
 ## Como visualizar
 
@@ -18,6 +18,7 @@ Abra `http://localhost:4173`.
 - Cadastro de visitantes com alerta simulado ao pastor;
 - Cadastro de família/grupo com todos os nomes;
 - Aba Acolhimento disponível para todos os acessos cadastrados na recepção, com mensagem agrupada por família, casal, amigos ou visitante individual;
+- Página própria da recepção em `/recepcao/`, com login demonstrativo e cadastro de visitantes, famílias e casais;
 - Classificação de chegada: sozinho, com amigos, em casal ou família;
 - Filtros e resumo por forma de chegada para os pastores;
 - Modo Púlpito com letras grandes, grupos por forma de chegada e todos os nomes prontos para leitura;
