@@ -226,7 +226,7 @@ function slugify(value = '') {
 function receptionLink(church = getActiveChurch()) {
   const pathname = window.location?.pathname || '/';
   const basePath = pathname.endsWith('/') ? pathname : pathname.slice(0, pathname.lastIndexOf('/') + 1);
-  return `${window.location.origin}${basePath}recepcao/`;
+  return `${window.location.origin}${basePath}recepcao.html`;
 }
 function churchLogoText(church) {
   return String(church?.logoSymbol || (church?.id === 'batesda' ? 'B' : initials(church?.name || 'B'))).trim().slice(0, 2).toUpperCase() || 'B';

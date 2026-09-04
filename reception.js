@@ -151,7 +151,9 @@ function renderChurchIdentity() {
   document.querySelector('#churchCity').textContent = `${church.city || 'Sua cidade'} · área de acolhimento`;
   document.title = `Recepção · ${church.name || 'Bethesda'}`;
   if (church.logoImage) {
-    const logoSource = /^(data:|https?:|\/)/i.test(church.logoImage) ? church.logoImage : `../${church.logoImage.replace(/^\.\//, '')}`;
+    const nestedReceptionPage = /\/recepcao(?:\/|\/index\.html$)/i.test(window.location.pathname);
+    const assetPrefix = nestedReceptionPage ? '../' : './';
+    const logoSource = /^(data:|https?:|\/)/i.test(church.logoImage) ? church.logoImage : `${assetPrefix}${church.logoImage.replace(/^\.\//, '')}`;
     logo.innerHTML = `<img src="${logoSource}" alt="Logo da ${church.name}">`;
   } else {
     logo.textContent = church.logoSymbol || initials(church.name);

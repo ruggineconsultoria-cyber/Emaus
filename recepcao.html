@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#141414">
+  <meta name="description" content="Emaús — área de recepção e acolhimento da igreja.">
+  <link rel="manifest" href="manifest.json">
+  <title>Recepção · Bethesda</title>
+  <style>
+    :root { --ink:#f5f1e9; --muted:#b8b0a4; --muted-2:#8d867d; --paper:#171716; --card:#242320; --card-2:#2b2925; --line:#423d34; --gold:#d7a84b; --gold-2:#e8c477; --copper:#b86f45; --success:#7eb793; --danger:#d4877b; --radius:18px; }
+    * { box-sizing:border-box; }
+    body { min-height:100vh; margin:0; color:var(--ink); background:radial-gradient(circle at 80% -10%, rgba(215,168,75,.16), transparent 34%), var(--paper); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    button,input,select,textarea { font:inherit; }
+    button { cursor:pointer; }
+    .reception-shell { width:min(100% - 30px, 960px); margin:0 auto; padding:24px 0 44px; }
+    .reception-header { display:flex; align-items:center; gap:13px; padding:10px 0 26px; }
+    .brand-mark { width:45px; height:45px; display:grid; place-items:center; flex:0 0 auto; border:1px solid rgba(255,255,255,.22); border-radius:14px; color:#211b12; background:linear-gradient(135deg,var(--gold-2),var(--copper)); font-family:Georgia,serif; font-size:26px; font-weight:700; text-decoration:none; overflow:hidden; }
+    .brand-mark img { width:100%; height:100%; object-fit:cover; }
+    .brand-copy { min-width:0; flex:1; }
+    .brand-copy small,.eyebrow { display:block; color:var(--gold-2); font-size:10px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
+    .brand-copy h1 { margin:4px 0 0; font-family:Georgia,serif; font-size:22px; font-weight:500; }
+    .brand-copy p { margin:3px 0 0; color:var(--muted); font-size:11px; }
+    .top-action { min-height:34px; padding:0 11px; border:1px solid var(--line); border-radius:9px; color:var(--muted); background:transparent; font-size:10px; }
+    .top-action:hover { color:var(--ink); border-color:#6b5a38; background:rgba(255,255,255,.05); }
+    .card { border:1px solid var(--line); border-radius:var(--radius); background:rgba(36,35,32,.96); box-shadow:0 18px 55px rgba(0,0,0,.2); }
+    .login-card { max-width:520px; margin:34px auto 0; padding:31px; }
+    h2 { margin:8px 0 8px; font-family:Georgia,serif; font-size:27px; font-weight:500; letter-spacing:-.02em; }
+    h3 { margin:0; font-size:15px; }
+    .intro { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
+    .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:23px; }
+    .field { display:flex; flex-direction:column; gap:6px; }
+    .field.full { grid-column:1 / -1; }
+    label { color:#d8d0c5; font-size:10px; font-weight:700; }
+    input,select,textarea { width:100%; min-height:42px; padding:10px 11px; border:1px solid var(--line); border-radius:10px; outline:0; color:var(--ink); background:#1c1b19; font-size:11px; }
+    textarea { min-height:86px; resize:vertical; }
+    input:focus,select:focus,textarea:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(215,168,75,.12); }
+    input::placeholder,textarea::placeholder { color:#766f66; }
+    .primary-button { width:100%; min-height:43px; margin-top:20px; border:0; border-radius:10px; color:#201a10; background:linear-gradient(135deg,var(--gold-2),var(--gold)); font-size:11px; font-weight:800; box-shadow:0 9px 24px rgba(215,168,75,.15); }
+    .primary-button:hover { filter:brightness(1.06); }
+    .secondary-button { min-height:37px; padding:0 12px; border:1px solid var(--line); border-radius:9px; color:var(--ink); background:var(--card-2); font-size:10px; font-weight:750; }
+    .secondary-button:hover { border-color:#765d31; background:#363128; }
+    .demo-note,.info-note { margin-top:15px; padding:11px 12px; border:1px solid #5d4a27; border-radius:10px; color:#c7b68d; background:#302817; font-size:10px; line-height:1.5; }
+    .demo-note strong,.info-note strong { color:var(--gold-2); }
+    .app-view { display:flex; flex-direction:column; gap:17px; }
+    .welcome { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:21px 23px; border:1px solid #5d4a27; border-radius:var(--radius); background:linear-gradient(120deg,#302817,#3b2920); }
+    .welcome strong { display:block; font-family:Georgia,serif; font-size:21px; font-weight:500; }
+    .welcome p { margin:5px 0 0; color:#cbbfb1; font-size:11px; }
+    .welcome-chip { padding:6px 9px; border-radius:7px; color:#d1e6d7; background:rgba(126,183,147,.15); font-size:9px; font-weight:800; white-space:nowrap; }
+    .content-card { padding:24px; }
+    .card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding-bottom:16px; border-bottom:1px solid var(--line); }
+    .card-head p { margin:5px 0 0; color:var(--muted); font-size:10px; line-height:1.5; }
+    .status { display:inline-flex; align-items:center; gap:5px; min-height:22px; padding:0 8px; border-radius:6px; color:#d1e6d7; background:rgba(126,183,147,.15); font-size:8px; font-weight:800; text-transform:uppercase; }
+    .status:before { content:""; width:5px; height:5px; border-radius:50%; background:var(--success); }
+    .group-toggle { display:flex; align-items:flex-start; gap:9px; margin-top:15px; padding:12px; border:1px solid #514631; border-radius:10px; color:var(--muted); background:#29251c; font-size:10px; line-height:1.4; }
+    .group-toggle input { width:15px; min-height:15px; margin:1px 0 0; accent-color:var(--gold); }
+    .group-toggle strong { display:block; color:var(--ink); font-size:10px; }
+    .family-fields { margin-top:13px; padding:13px; border:1px solid var(--line); border-radius:11px; background:#1f1e1c; }
+    .family-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:9px; }
+    .family-head p { margin:4px 0 0; color:var(--muted-2); font-size:9px; line-height:1.4; }
+    .family-list { display:flex; flex-direction:column; gap:8px; }
+    .family-row { display:flex; align-items:center; gap:7px; }
+    .family-row input { flex:1; }
+    .remove-member { width:32px; height:32px; padding:0; border:1px solid var(--line); border-radius:8px; color:var(--muted); background:transparent; }
+    .remove-member:hover { color:var(--danger); border-color:#70443e; }
+    .preview { margin-top:17px; padding:14px; border:1px solid #5d4a27; border-radius:11px; background:#302817; }
+    .preview-label { color:var(--gold-2); font-size:9px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+    .preview p { margin:8px 0 0; color:#f4ead7; font-family:Georgia,serif; font-size:14px; line-height:1.65; white-space:pre-line; }
+    .form-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:20px; padding-top:17px; border-top:1px solid var(--line); }
+    .form-actions .primary-button { width:auto; min-width:180px; margin-top:0; }
+    .success { display:flex; align-items:flex-start; gap:11px; margin-top:17px; padding:13px; border:1px solid rgba(126,183,147,.32); border-radius:10px; color:#d1e6d7; background:rgba(126,183,147,.1); font-size:10px; line-height:1.5; }
+    .success strong { display:block; margin-bottom:2px; font-size:11px; }
+    .success-icon { width:24px; height:24px; display:grid; place-items:center; flex:0 0 auto; border-radius:7px; color:var(--success); background:rgba(126,183,147,.15); font-weight:900; }
+    .toast { position:fixed; right:18px; bottom:18px; z-index:5; max-width:min(360px,calc(100% - 36px)); padding:12px 14px; border:1px solid #5d4a27; border-radius:10px; color:#f4ead7; background:#302817; box-shadow:0 12px 30px rgba(0,0,0,.28); font-size:10px; }
+    .footer { margin-top:22px; color:var(--muted-2); font-size:9px; text-align:center; }
+    .hidden { display:none !important; }
+    @media (max-width:650px) {
+      .reception-shell { width:min(100% - 22px, 960px); padding-top:13px; }
+      .reception-header { padding-bottom:18px; }
+      .brand-copy h1 { font-size:19px; }
+      .brand-copy p { font-size:10px; }
+      .top-action { padding:0 8px; font-size:9px; }
+      .login-card,.content-card { padding:18px; }
+      .form-grid { grid-template-columns:1fr; gap:12px; margin-top:18px; }
+      .field.full { grid-column:auto; }
+      .welcome { align-items:flex-start; flex-direction:column; padding:17px; }
+      .welcome strong { font-size:19px; }
+      .form-actions { align-items:stretch; flex-direction:column-reverse; }
+      .form-actions .primary-button,.form-actions .secondary-button { width:100%; }
+      .family-head { flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="reception-shell">
+    <header class="reception-header">
+      <a class="brand-mark" id="churchLogo" href="./" aria-label="Voltar para a área da igreja">B</a>
+      <div class="brand-copy">
+        <small>Emaús · Recepção</small>
+        <h1 id="churchName">Bethesda</h1>
+        <p id="churchCity">Área de acolhimento da igreja</p>
+      </div>
+      <button class="top-action hidden" id="logoutButton" type="button">Sair</button>
+    </header>
+
+    <section class="card login-card" id="loginView">
+      <span class="eyebrow">ACESSO DA RECEPÇÃO</span>
+      <h2>Entrar para acolher</h2>
+      <p class="intro">Use seu login individual para cadastrar visitantes, famílias e casais da igreja.</p>
+      <form id="loginForm">
+        <div class="form-grid">
+          <div class="field full"><label for="loginEmail">Login</label><input id="loginEmail" type="email" autocomplete="username" placeholder="seu@login.com.br" required></div>
+          <div class="field full"><label for="loginPassword">Senha</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Digite sua senha" required></div>
+        </div>
+        <button class="primary-button" type="submit">Entrar na recepção</button>
+      </form>
+      <div class="demo-note"><strong>Prévia:</strong> use <strong>mariana@bethesda.com.br</strong> como login. Nesta demonstração, qualquer senha preenchida permite visualizar o formulário; a autenticação real será conectada ao backend.</div>
+      <p id="loginMessage" class="intro hidden" style="margin-top:14px;color:#e1a49a;"></p>
+    </section>
+
+    <section class="app-view hidden" id="appView">
+      <div class="welcome"><div><span class="eyebrow">ACOLHIMENTO</span><strong id="welcomeTitle">Olá!</strong><p>Registre cada pessoa com carinho e mantenha os grupos juntos para o anúncio.</p></div><span class="welcome-chip">Acesso autorizado</span></div>
+      <section class="card content-card">
+        <div class="card-head"><div><h3>Novo visitante</h3><p>Os dados serão enviados para a área dos pastores e para o Acolhimento.</p></div><span class="status">Igreja ativa</span></div>
+        <form id="visitorForm">
+          <div class="form-grid">
+            <div class="field full"><label for="visitorName">Nome principal *</label><input id="visitorName" name="name" placeholder="Ex.: João da Silva" required></div>
+            <div class="field"><label for="visitorPhone">Telefone / WhatsApp</label><input id="visitorPhone" name="phone" placeholder="(21) 99999-9999"></div>
+            <div class="field"><label for="visitorDate">Data da visita *</label><input id="visitorDate" name="date" type="date" required></div>
+            <div class="field"><label for="visitorService">Culto ou evento</label><select id="visitorService" name="service"><option>Culto de Celebração</option><option>Culto da Família</option><option>Culto de Ensino</option><option>Santa Ceia</option><option>Outro evento</option></select></div>
+            <div class="field"><label for="visitorArrival">Como veio? *</label><select id="visitorArrival" name="arrivalType" required><option>Sozinho</option><option>Com amigos</option><option>Em casal</option><option>Família</option></select></div>
+            <div class="field"><label for="visitorFamilyName">Nome da família ou grupo</label><input id="visitorFamilyName" name="familyName" placeholder="Ex.: Família Nogueira"></div>
+            <div class="field"><label for="visitorInvitedBy">Quem convidou?</label><input id="visitorInvitedBy" name="invitedBy" placeholder="Nome ou equipe"></div>
+            <div class="field full"><label for="visitorNotes">Observações</label><textarea id="visitorNotes" name="notes" placeholder="Algum detalhe importante para o cuidado?"></textarea></div>
+          </div>
+          <label class="group-toggle"><input id="registerGroup" name="registerGroup" type="checkbox"><span><strong>Cadastrar pessoas que vieram juntas</strong>Adicione todos os nomes para que a mensagem fique organizada como “Família Nogueira: Nome 1, Nome 2 e Nome 3”.</span></label>
+          <div class="family-fields hidden" id="familyFields"><div class="family-head"><div><label>Nomes para anunciar</label><p>O nome principal já será incluído. Adicione os outros nomes do grupo.</p></div><button class="secondary-button" id="addMember" type="button">+ Adicionar pessoa</button></div><div class="family-list" id="familyList"></div></div>
+          <div class="preview"><span class="preview-label">Prévia da mensagem</span><p id="messagePreview">Sozinho: informe o nome do visitante.</p></div>
+          <div class="form-actions"><button class="secondary-button" id="clearForm" type="button">Limpar</button><button class="primary-button" type="submit">Salvar visitante</button></div>
+        </form>
+        <div class="success hidden" id="successMessage"><span class="success-icon">✓</span><div><strong>Cadastro salvo com sucesso.</strong><span id="successText">O pastor já poderá visualizar este visitante no Acolhimento.</span></div></div>
+      </section>
+    </section>
+    <footer class="footer">Emaús · Recepção da <span id="footerChurchName">Bethesda</span> · <a href="./" style="color:#d7a84b;">Voltar para a área da igreja</a></footer>
+  </main>
+  <div class="toast hidden" id="toast"></div>
+  <script src="reception.js"></script>
+</body>
+</html>
