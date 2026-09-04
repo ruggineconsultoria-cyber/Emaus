@@ -43,8 +43,8 @@ const defaultState = {
     { id: 'e-4', title: 'Café com líderes', date: '2026-09-19', time: '08:30', location: 'Sala de reuniões', type: 'Liderança', audience: 'Lideranças' }
   ],
   receptionUsers: [
-    { id: 'r-1', name: 'Mariana Alves', role: 'Recepção', roleKey: 'reception', churchId: 'batesda', login: 'mariana@bethesda.com.br', phone: '(21) 99704-2118', passwordStatus: 'Ativa', status: 'Ativo', lastAccess: 'Hoje, 10:42', permissions: ['acolhimento'], initials: 'MA', tone: 'copper' },
-    { id: 'r-2', name: 'João Pedro', role: 'Obreiro', roleKey: 'reception', churchId: 'batesda', login: 'joao@bethesda.com.br', phone: '(21) 99634-1822', passwordStatus: 'Ativa', status: 'Ativo', lastAccess: 'Domingo, 18:21', permissions: ['acolhimento'], initials: 'JP', tone: 'olive' }
+    { id: 'r-1', name: 'Mariana Alves', role: 'Recepção', roleKey: 'reception', churchId: 'batesda', login: 'mariana@bethesda.com.br', password: '123456', phone: '(21) 99704-2118', passwordStatus: 'Ativa', status: 'Ativo', lastAccess: 'Hoje, 10:42', permissions: ['acolhimento'], initials: 'MA', tone: 'copper' },
+    { id: 'r-2', name: 'João Pedro', role: 'Obreiro', roleKey: 'reception', churchId: 'batesda', login: 'joao@bethesda.com.br', password: '123456', phone: '(21) 99634-1822', passwordStatus: 'Ativa', status: 'Ativo', lastAccess: 'Domingo, 18:21', permissions: ['acolhimento'], initials: 'JP', tone: 'olive' }
   ],
   leaders: [
     { id: 'l-1', name: 'Evandro', role: 'Pastor titular', phone: '(21) 99921-4421', group: 'Administração', initials: 'EV', tone: 'gold' },
@@ -105,6 +105,7 @@ function loadState() {
         roleKey: user.roleKey || 'reception',
         churchId: user.churchId || 'batesda',
         login: (user.login || `${slugify(user.name)}@${slugify(defaultState.churches[0]?.name || 'igreja')}.com.br`).replace(/@batesda\.com\.br$/i, '@bethesda.com.br'),
+        password: user.password || (/^(mariana|joao)@(batesda|bethesda)\.com\.br$/i.test(String(user.login || '')) ? '123456' : ''),
         passwordStatus: user.passwordStatus || 'Ativa',
         permissions: Array.isArray(user.permissions) && user.permissions.length ? user.permissions : ['acolhimento']
       }));
@@ -684,13 +685,13 @@ function openModal(type, data = {}) {
   } else if (type === 'reception') {
     modalTitle = 'Adicionar acesso de recepção';
     modalEyebrow = 'EQUIPE DA IGREJA';
-    content = `<form data-form="reception"><div class="form-grid"><div class="form-field full"><label for="receptionName">Nome do obreiro ou membro *</label><input class="input" id="receptionName" name="name" required placeholder="Ex.: Maria Oliveira"></div><div class="form-field"><label for="receptionLogin">Login de acesso *</label><input class="input" id="receptionLogin" name="login" type="email" required placeholder="nome@igreja.com.br"></div><div class="form-field"><label for="receptionRole">Função</label><select class="select" id="receptionRole" name="role"><option>Recepção</option><option>Obreiro</option><option>Membro autorizado</option></select></div><div class="form-field"><label for="receptionPhone">Telefone</label><input class="input" id="receptionPhone" name="phone" placeholder="(21) 99999-9999"></div><div class="form-field full"><div class="scope-note" style="margin:0;"><span>${ICON('shield')}</span><p><strong>A senha não será exibida.</strong> A pessoa receberá um convite para criar a própria senha e terá acesso à aba <strong>Acolhimento</strong> para cadastrar e organizar os visitantes.</p></div></div></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-gold">${ICON('users')} Criar acesso</button></div></form>`;
+    content = `<form data-form="reception"><div class="form-grid"><div class="form-field full"><label for="receptionName">Nome do obreiro ou membro *</label><input class="input" id="receptionName" name="name" required placeholder="Ex.: Maria Oliveira"></div><div class="form-field"><label for="receptionLogin">Login de acesso *</label><input class="input" id="receptionLogin" name="login" type="email" autocomplete="username" required placeholder="nome@igreja.com.br"></div><div class="form-field"><label for="receptionRole">Função</label><select class="select" id="receptionRole" name="role"><option>Recepção</option><option>Obreiro</option><option>Membro autorizado</option></select></div><div class="form-field"><label for="receptionPhone">Telefone</label><input class="input" id="receptionPhone" name="phone" placeholder="(21) 99999-9999"></div><div class="form-field"><label for="receptionPassword">Senha de acesso *</label><input class="input" id="receptionPassword" name="password" type="password" autocomplete="new-password" minlength="6" required placeholder="Mínimo de 6 caracteres"></div><div class="form-field"><label for="receptionPasswordConfirm">Confirmar senha *</label><input class="input" id="receptionPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="6" required placeholder="Repita a senha"></div><div class="form-field full"><div class="scope-note" style="margin:0;"><span>${ICON('shield')}</span><p><strong>Defina a senha neste cadastro.</strong> O obreiro usará o login e esta senha para entrar na recepção e acessar a aba <strong>Acolhimento</strong>. A senha não fica visível depois de salva.</p></div></div></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-gold">${ICON('users')} Salvar acesso</button></div></form>`;
   } else if (type === 'reception-detail') {
     const receptionUser = (state.receptionUsers || []).find(item => item.id === data.id);
     if (!receptionUser) return;
     modalTitle = receptionUser.name;
     modalEyebrow = 'ACESSO DA RECEPÇÃO';
-    content = `<div class="person-cell" style="padding-bottom:18px;border-bottom:1px solid #f0ede7;"><div class="avatar avatar-copper" style="width:46px;height:46px;">${esc(receptionUser.initials || initials(receptionUser.name))}</div><div><strong style="font-size:14px;">${esc(receptionUser.name)}</strong><span style="font-size:10px;margin-top:5px;">${esc(receptionUser.role)} · ${esc(receptionUser.status || 'Ativo')}</span></div></div><div class="form-grid" style="margin-top:20px;"><div class="form-field"><label>Login</label><div style="font-size:11px;color:var(--ink);">${esc(receptionUser.login || 'Não informado')}</div></div><div class="form-field"><label>Status da senha</label><div><span class="status-pill ${receptionUser.passwordStatus === 'Ativa' ? 'status-integrated' : 'status-contacted'}">${esc(receptionUser.passwordStatus || 'Ativa')}</span></div></div><div class="form-field full"><label>Abas liberadas</label><div class="permission-list"><span class="access-permission">${ICON('heart')} Acolhimento</span><p class="field-note">Esta aba fica disponível para todos os acessos cadastrados na recepção.</p></div></div><div class="form-field full"><div class="scope-note" style="margin:0;"><span>${ICON('shield')}</span><p>Por segurança, a senha atual nunca fica visível para o pastor. É possível apenas enviar uma redefinição.</p></div></div></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Fechar</button><button type="button" class="btn btn-secondary" data-action="reset-reception-password" data-id="${esc(receptionUser.id)}">${ICON('refresh')} Enviar redefinição</button>${receptionUser.status === 'Bloqueado' ? `<button type="button" class="btn btn-gold" data-action="toggle-reception-access" data-id="${esc(receptionUser.id)}">${ICON('check')} Reativar acesso</button>` : `<button type="button" class="btn btn-secondary" data-action="toggle-reception-access" data-id="${esc(receptionUser.id)}">${ICON('shield')} Bloquear acesso</button>`}<button type="button" class="btn btn-danger" data-action="delete-reception-access" data-id="${esc(receptionUser.id)}">${ICON('x')} Excluir acesso</button></div>`;
+    content = `<div class="person-cell" style="padding-bottom:18px;border-bottom:1px solid #f0ede7;"><div class="avatar avatar-copper" style="width:46px;height:46px;">${esc(receptionUser.initials || initials(receptionUser.name))}</div><div><strong style="font-size:14px;">${esc(receptionUser.name)}</strong><span style="font-size:10px;margin-top:5px;">${esc(receptionUser.role)} · ${esc(receptionUser.status || 'Ativo')}</span></div></div><div class="form-grid" style="margin-top:20px;"><div class="form-field"><label>Login</label><div style="font-size:11px;color:var(--ink);">${esc(receptionUser.login || 'Não informado')}</div></div><div class="form-field"><label>Status da senha</label><div><span class="status-pill ${receptionUser.passwordStatus === 'Ativa' ? 'status-integrated' : 'status-contacted'}">${esc(receptionUser.passwordStatus || 'Ativa')}</span></div></div><div class="form-field full"><label>Abas liberadas</label><div class="permission-list"><span class="access-permission">${ICON('heart')} Acolhimento</span><p class="field-note">Esta aba fica disponível para todos os acessos cadastrados na recepção.</p></div></div><div class="form-field full"><div class="scope-note" style="margin:0;"><span>${ICON('shield')}</span><p>Por segurança, a senha atual nunca fica visível para o pastor. Use “Definir nova senha” para trocar a senha do acesso.</p></div></div></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Fechar</button><button type="button" class="btn btn-secondary" data-action="reset-reception-password" data-id="${esc(receptionUser.id)}">${ICON('refresh')} Definir nova senha</button>${receptionUser.status === 'Bloqueado' ? `<button type="button" class="btn btn-gold" data-action="toggle-reception-access" data-id="${esc(receptionUser.id)}">${ICON('check')} Reativar acesso</button>` : `<button type="button" class="btn btn-secondary" data-action="toggle-reception-access" data-id="${esc(receptionUser.id)}">${ICON('shield')} Bloquear acesso</button>`}<button type="button" class="btn btn-danger" data-action="delete-reception-access" data-id="${esc(receptionUser.id)}">${ICON('x')} Excluir acesso</button></div>`;
   } else if (type === 'visitor-detail') {
     const visitor = state.visitors.find(item => item.id === data.id);
     if (!visitor) return;
@@ -808,11 +809,17 @@ function handleSubmit(event) {
   } else if (formType === 'reception') {
     const name = String(data.get('name') || '').trim();
     const login = String(data.get('login') || '').trim().toLowerCase();
+    const password = String(data.get('password') || '');
+    const passwordConfirm = String(data.get('passwordConfirm') || '');
     if (!name) return showToast('Informe o nome do obreiro ou membro.', 'error');
     if (!login) return showToast('Informe um e-mail para o login.', 'error');
+    if (password.length < 6) return showToast('A senha deve ter pelo menos 6 caracteres.', 'error');
+    if (password !== passwordConfirm) return showToast('A confirmação da senha não confere.', 'error');
     state.receptionUsers = state.receptionUsers || [];
-    state.receptionUsers.push({ id: `r-${Date.now()}`, name, login, role: String(data.get('role') || 'Recepção'), roleKey: 'reception', churchId: state.activeChurchId, phone: String(data.get('phone') || 'Não informado'), passwordStatus: 'Convite pendente', status: 'Ativo', permissions: ['acolhimento'], lastAccess: 'ainda não acessou', initials: initials(name), tone: 'dark' });
-    saveState(); closeModal(); render(); showToast(`Convite enviado para ${name}. Ele poderá criar a própria senha.`);
+    const duplicateLogin = state.receptionUsers.some(user => String(user.login || '').toLowerCase() === login && user.id !== state.currentUser?.receptionUserId);
+    if (duplicateLogin) return showToast('Este login já está cadastrado na recepção.', 'error');
+    state.receptionUsers.push({ id: `r-${Date.now()}`, name, login, password, role: String(data.get('role') || 'Recepção'), roleKey: 'reception', churchId: state.activeChurchId, phone: String(data.get('phone') || 'Não informado'), passwordStatus: 'Ativa', status: 'Ativo', permissions: ['acolhimento'], lastAccess: 'ainda não acessou', initials: initials(name), tone: 'dark' });
+    saveState(); closeModal(); render(); showToast(`Acesso de ${name} salvo. Já é possível entrar com esse login e senha.`);
   } else if (formType === 'organization') {
     const church = getActiveChurch();
     church.name = String(data.get('churchName') || church.name).trim();
@@ -868,11 +875,18 @@ function togglePulpitFullscreen() {
 function resetReceptionPassword(id) {
   const receptionUser = (state.receptionUsers || []).find(item => item.id === id);
   if (!receptionUser) return;
-  receptionUser.passwordStatus = 'Redefinição enviada';
+  const password = window.prompt(`Defina uma nova senha para ${receptionUser.name} (mínimo de 6 caracteres):`);
+  if (password === null) return;
+  if (password.length < 6) return showToast('A senha deve ter pelo menos 6 caracteres.', 'error');
+  const confirmation = window.prompt('Confirme a nova senha:');
+  if (confirmation === null) return;
+  if (password !== confirmation) return showToast('A confirmação da senha não confere.', 'error');
+  receptionUser.password = password;
+  receptionUser.passwordStatus = 'Ativa';
   saveState();
   closeModal();
   render();
-  showToast(`Link para criar uma nova senha enviado para ${receptionUser.name}.`);
+  showToast(`Nova senha definida para ${receptionUser.name}.`);
 }
 
 function toggleReceptionAccess(id) {

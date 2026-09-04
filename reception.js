@@ -11,8 +11,8 @@ const fallbackState = {
   visitors: [],
   activity: [],
   receptionUsers: [
-    { id: 'r-1', name: 'Mariana Alves', role: 'Recepção', login: 'mariana@bethesda.com.br', status: 'Ativo', permissions: ['acolhimento'] },
-    { id: 'r-2', name: 'João Pedro', role: 'Obreiro', login: 'joao@bethesda.com.br', status: 'Ativo', permissions: ['acolhimento'] }
+    { id: 'r-1', name: 'Mariana Alves', role: 'Recepção', login: 'mariana@bethesda.com.br', password: '123456', status: 'Ativo', permissions: ['acolhimento'] },
+    { id: 'r-2', name: 'João Pedro', role: 'Obreiro', login: 'joao@bethesda.com.br', password: '123456', status: 'Ativo', permissions: ['acolhimento'] }
   ]
 };
 
@@ -186,8 +186,9 @@ function handleLogin(event) {
   const password = document.querySelector('#loginPassword').value;
   const message = document.querySelector('#loginMessage');
   const user = (state.receptionUsers || []).find(item => String(item.login || '').toLowerCase() === email);
+  const passwordMatches = user && (!user.password || user.password === password);
   const hasPermission = user && (!Array.isArray(user.permissions) || user.permissions.includes('acolhimento'));
-  if (!password || !user || user.status === 'Bloqueado' || !hasPermission) {
+  if (!password || !user || !passwordMatches || user.status === 'Bloqueado' || !hasPermission) {
     message.textContent = user?.status === 'Bloqueado' ? 'Este acesso está bloqueado. Fale com o pastor da igreja.' : 'Confira o login cadastrado na recepção e tente novamente.';
     message.classList.remove('hidden');
     return;
