@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emaus-shell-v23';
+const CACHE_NAME = 'emaus-shell-v24';
 const APP_SHELL = ['./', './index.html', './styles.css', './app.js', './manifest.json', './bethesda-logo.png', './recepcao.html', './reception.js', './recepcao/', './recepcao/index.html', './recepcao/reception.js'];
 
 self.addEventListener('install', event => {
@@ -15,11 +15,15 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  const request = event.request;
+  const isNavigation = request.mode === 'navigate';
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-      return response;
-    }).catch(() => caches.match('./index.html')))
+    (isNavigation ? fetch(request) : caches.match(request).then(cached => cached || fetch(request)))
+      .then(response => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+        return response;
+      })
+      .catch(() => caches.match(request).then(cached => cached || caches.match('./index.html')))
   );
 });
