@@ -32,6 +32,7 @@ Abra `http://localhost:4173`.
 - Permissão separada entre pastor da igreja, equipe de recepção e administrador da plataforma;
 - Acessos individuais de recepção com login, senha definida no cadastro e redefinição demonstrativa;
 - Backup automático a cada alteração salva, com até 30 versões recentes mantidas no navegador;
+- Área demonstrativa do administrador da plataforma em `/admin.html`, com igrejas, bloqueio/liberação, planos, preços e gráficos financeiros;
 - PWA com manifesto e service worker.
 
 O protótipo demonstra dois níveis de acesso: `Pastor da igreja` administra somente a organização ativa (incluindo nome e logo); `Administrador da plataforma` fica responsável por cadastrar igrejas, planos e organizações. Os dados do protótipo são salvos no `localStorage` do navegador. As integrações reais de WhatsApp oficial, push, autenticação, banco de dados, isolamento multi-tenant e cobrança SaaS ainda precisam ser conectadas na etapa de desenvolvimento do produto.
@@ -43,3 +44,11 @@ O protótipo demonstra dois níveis de acesso: `Pastor da igreja` administra som
 - Senha: `123456`
 
 Ao criar um novo acesso em “Acessos da recepção”, o pastor define a senha que será usada para entrar em `recepcao.html`.
+
+## Área demonstrativa do administrador da plataforma
+
+- Endereço: `admin.html`
+- Login: `admin@emaus.com.br`
+- Senha: `Emaus@123`
+
+A área permite administrar igrejas, liberar ou bloquear organizações, editar planos e preços, registrar gastos e acompanhar ganhos e resultados. A oferta demonstrativa prevê 30 dias grátis, valor congelado por 12 meses para as 40 primeiras igrejas e nenhuma cobrança adicional. A autenticação e os dados ainda são demonstrativos e ficam no navegador até a conexão com o Railway.

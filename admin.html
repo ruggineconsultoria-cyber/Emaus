@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111110">
+  <meta name="description" content="Emaús — administração da plataforma e das igrejas.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="admin.css">
+  <title>Administrador · Emaús</title>
+</head>
+<body>
+  <section class="admin-auth" id="adminLoginView">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <img src="emaus-admin-logo.png" alt="Logo administrativa da Emaús">
+        <div><strong>Emaús</strong><span>Administração da plataforma</span></div>
+      </div>
+      <span class="eyebrow">ÁREA RESTRITA</span>
+      <h1>Comandar a plataforma</h1>
+      <p>Gerencie igrejas, planos, liberações e os indicadores financeiros da Emaús.</p>
+      <form class="auth-form" id="adminLoginForm">
+        <div class="field"><label for="adminEmail">Login do administrador</label><input id="adminEmail" type="email" autocomplete="username" placeholder="admin@emaus.com.br" required></div>
+        <div class="field"><label for="adminPassword">Senha</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Digite sua senha" required></div>
+        <button class="btn btn-gold" type="submit">Entrar no administrador</button>
+        <p class="auth-error hidden" id="adminLoginError"></p>
+      </form>
+      <div class="auth-note"><strong>Prévia administrativa:</strong> use <strong>admin@emaus.com.br</strong> e a senha <strong>Emaus@123</strong>. Esta autenticação é demonstrativa até a conexão com o Railway.</div>
+    </div>
+  </section>
+
+  <section class="hidden" id="adminAppView">
+    <header class="admin-topbar">
+      <a class="admin-top-brand" href="./" aria-label="Voltar para Emaús">
+        <img src="emaus-admin-logo.png" alt="Emaús">
+        <strong>Emaús</strong><span>Administrador da plataforma</span>
+      </a>
+      <div class="top-actions"><div class="admin-user"><strong>Administrador da plataforma</strong><span>Controle central das organizações</span></div><button class="btn btn-small" id="adminLogout" type="button">Sair</button></div>
+    </header>
+
+    <div class="admin-layout">
+      <aside class="admin-sidebar">
+        <div class="admin-sidebar-label">Central de controle</div>
+        <nav class="admin-nav" aria-label="Navegação administrativa">
+          <button class="active" data-admin-view="overview"><span class="admin-nav-icon">⌂</span>Visão geral</button>
+          <button data-admin-view="churches"><span class="admin-nav-icon">◈</span>Igrejas</button>
+          <button data-admin-view="plans"><span class="admin-nav-icon">◫</span>Planos e preços</button>
+          <button data-admin-view="finance"><span class="admin-nav-icon">◇</span>Ganhos e gastos</button>
+        </nav>
+        <div class="sidebar-note"><strong>Controle multi-igreja</strong>As igrejas podem personalizar sua identidade, mas o administrador central controla status, planos, valores e cobrança.</div>
+      </aside>
+
+      <main class="admin-main" id="adminContent"></main>
+    </div>
+  </section>
+
+  <div class="toast hidden" id="adminToast"></div>
+  <script src="admin.js"></script>
+</body>
+</html>
