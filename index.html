@@ -6,10 +6,23 @@
   <meta name="theme-color" content="#111111" />
   <meta name="description" content="Emaús — plataforma de gestão e comunicação para igrejas." />
   <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="splash.css" />
   <link rel="stylesheet" href="styles.css" />
   <title>Emaús • Plataforma da Igreja</title>
 </head>
 <body>
+  <section id="emausSplash" role="status" aria-label="Abrindo a plataforma Emaús">
+    <div class="splash-inner">
+      <div class="splash-halo" aria-hidden="true"></div>
+      <div class="splash-logo-wrap">
+        <img id="splashLogo" class="splash-logo" src="bethesda-logo.png" alt="Logo da Bethesda">
+        <span id="splashLogoText" class="splash-logo-text" hidden>BE</span>
+      </div>
+      <span id="splashKicker" class="splash-kicker">Emaús · Igreja Bethesda</span>
+      <strong class="splash-title">Seja bem-vindo</strong>
+      <p class="splash-subtitle">Um lugar para pertencer, crescer e viver a fé em comunidade.</p>
+    </div>
+  </section>
   <svg aria-hidden="true" class="svg-sprite" xmlns="http://www.w3.org/2000/svg">
     <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
     <symbol id="icon-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
@@ -131,6 +144,7 @@
 
   <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
+  <script src="splash.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#141414">
   <meta name="description" content="Emaús — área de recepção e acolhimento da igreja.">
   <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="splash.css">
   <title>Recepção · Bethesda</title>
   <style>
     :root { --ink:#f5f1e9; --muted:#b8b0a4; --muted-2:#8d867d; --paper:#171716; --card:#242320; --card-2:#2b2925; --line:#423d34; --gold:#d7a84b; --gold-2:#e8c477; --copper:#b86f45; --success:#7eb793; --danger:#d4877b; --radius:18px; }
@@ -92,6 +93,18 @@
   </style>
 </head>
 <body>
+  <section id="emausSplash" role="status" aria-label="Abrindo a plataforma Emaús">
+    <div class="splash-inner">
+      <div class="splash-halo" aria-hidden="true"></div>
+      <div class="splash-logo-wrap">
+        <img id="splashLogo" class="splash-logo" src="bethesda-logo.png" alt="Logo da Bethesda">
+        <span id="splashLogoText" class="splash-logo-text" hidden>BE</span>
+      </div>
+      <span id="splashKicker" class="splash-kicker">Emaús · Igreja Bethesda</span>
+      <strong class="splash-title">Seja bem-vindo</strong>
+      <p class="splash-subtitle">Um lugar para pertencer, crescer e viver a fé em comunidade.</p>
+    </div>
+  </section>
   <main class="reception-shell">
     <header class="reception-header">
       <a class="brand-mark" id="churchLogo" href="./" aria-label="Voltar para a área da igreja">B</a>
@@ -144,6 +157,7 @@
     <footer class="footer">Emaús · Recepção da <span id="footerChurchName">Bethesda</span> · <a href="./" style="color:#d7a84b;">Voltar para a área da igreja</a></footer>
   </main>
   <div class="toast hidden" id="toast"></div>
+  <script src="splash.js"></script>
   <script src="reception.js"></script>
 </body>
 </html>
