@@ -1,54 +1,34 @@
-# Emaús — Plataforma da Igreja
+# Emaús API para Railway
 
-Protótipo navegável da Emaús, uma plataforma web/PWA para gestão de visitantes, comunicação, agenda e lideranças. A igreja demonstrada neste protótipo é a Bethesda.
+API inicial da plataforma Emaús, preparada para rodar em um serviço separado no Railway e usar o PostgreSQL do projeto `honest-gentleness`.
 
-## Como visualizar
+## Segurança
 
-Sirva esta pasta com qualquer servidor HTTP local. Exemplo:
+Nunca coloque senhas, `JWT_SECRET` ou `service_role` em arquivos públicos. Configure as variáveis privadas no Railway.
 
-```bash
-python3 -m http.server 4173 --bind 0.0.0.0
-```
+## Variáveis obrigatórias
 
-Abra `http://localhost:4173`.
+- `DATABASE_URL`: referência ao PostgreSQL do Railway;
+- `JWT_SECRET`: chave longa e aleatória;
+- `CORS_ORIGIN`: `https://ruggineconsultoria-cyber.github.io`;
+- `ADMIN_EMAIL` e `ADMIN_PASSWORD`;
+- `PASTOR_EMAIL` e `PASTOR_PASSWORD`;
+- `RECEPTION_EMAIL` e `RECEPTION_PASSWORD`.
 
-## Escopo demonstrado
+A API cria as tabelas automaticamente na primeira inicialização, mantém a Bethesda, cria os três planos Emaús e registra auditoria das alterações. A senha do administrador é definida somente pelas variáveis privadas do Railway.
 
-- Dashboard com indicadores interativos, atividade e próximos eventos; ao clicar em cada indicador o pastor abre seus detalhes;
-- Cadastro de visitantes com alerta simulado ao pastor;
-- Cadastro de família/grupo com todos os nomes;
-- Aba Acolhimento disponível para todos os acessos cadastrados na recepção, com mensagem agrupada por família, casal, amigos ou visitante individual;
-- Página própria da recepção em `/recepcao.html` (e `/recepcao/` quando a pasta for preservada), com login demonstrativo e cadastro de visitantes, famílias e casais;
-- Classificação de chegada: sozinho, com amigos, em casal ou família;
-- Filtros e resumo por forma de chegada para os pastores;
-- Modo Púlpito com letras grandes, grupos por forma de chegada e todos os nomes prontos para leitura;
-- Preparação automática de um aviso com os nomes dos visitantes para os pastores anunciarem à igreja;
-- Marcação dos visitantes já apresentados, evitando repetição no próximo culto;
-- Central de comunicação com envio e agendamento;
-- Agenda da igreja;
-- Gestão de lideranças;
-- Configurações da igreja, canais e gestão multi-igreja;
-- Personalização por igreja de nome, logo, cores, tema claro/escuro e fonte;
-- Permissão separada entre pastor da igreja, equipe de recepção e administrador da plataforma;
-- Acessos individuais de recepção com login, senha definida no cadastro e redefinição demonstrativa;
-- Backup automático a cada alteração salva, com até 30 versões recentes mantidas no navegador;
-- Área demonstrativa do administrador da plataforma em `/admin.html`, com igrejas, bloqueio/liberação, planos, preços e gráficos financeiros;
-- PWA com manifesto e service worker.
+## Rotas principais
 
-O protótipo demonstra dois níveis de acesso: `Pastor da igreja` administra somente a organização ativa (incluindo nome e logo); `Administrador da plataforma` fica responsável por cadastrar igrejas, planos e organizações. Os dados do protótipo são salvos no `localStorage` do navegador. As integrações reais de WhatsApp oficial, push, autenticação, banco de dados, isolamento multi-tenant e cobrança SaaS ainda precisam ser conectadas na etapa de desenvolvimento do produto.
+- `GET /health` — verificação do serviço;
+- `POST /api/auth/login` — login;
+- `GET /api/admin/summary` — resumo administrativo;
+- `GET /api/admin/churches` — organizações;
+- `PATCH /api/admin/churches/:id/status` — bloquear/liberar;
+- `GET/PUT /api/admin/plans` — planos e preços;
+- `GET/POST /api/admin/expenses` — gastos;
+- `GET/POST /api/church/visitors` — visitantes e acolhimento;
+- `GET/PUT /api/church/settings` — identidade da igreja.
 
+## Deploy
 
-## Acesso demonstrativo da recepção
-
-- Login: `mariana@bethesda.com.br`
-- Senha: `123456`
-
-Ao criar um novo acesso em “Acessos da recepção”, o pastor define a senha que será usada para entrar em `recepcao.html`.
-
-## Área demonstrativa do administrador da plataforma
-
-- Endereço: `admin.html`
-- Login: `admin@emaus.com.br`
-- Senha: `Emaus@123`
-
-A área permite administrar igrejas, liberar ou bloquear organizações, editar planos e preços, registrar gastos e acompanhar ganhos e resultados. A oferta demonstrativa prevê 30 dias grátis, valor congelado por 12 meses para as 40 primeiras igrejas e nenhuma cobrança adicional. A autenticação e os dados ainda são demonstrativos e ficam no navegador até a conexão com o Railway.
+No Railway, crie um serviço separado chamado `emaus-api`, conecte-o ao diretório deste pacote e configure as variáveis acima. Não altere o serviço privado `glow-platform`.
