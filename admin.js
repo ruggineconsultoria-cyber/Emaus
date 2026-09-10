@@ -209,7 +209,7 @@ function createBackup(reason) {
 function saveState(reason = 'Alteração administrativa salva') {
   state.platformPricingVersion = 3;
   state.platformPolicy = { ...DEFAULT_POLICY, ...(state.platformPolicy || {}) };
-  state.churches = state.churches.map(normalizeChurch);
+  state.churches = state.churches.map(church => normalizeChurch(church));
   localStorage.setItem(STATE_KEY, JSON.stringify(state));
   createBackup(reason);
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'emaus-shell-v31';
+const CACHE_NAME = 'emaus-shell-v32';
 const APP_SHELL = ['./', './index.html', './styles.css', './splash.css', './splash.js', './app.js', './api-config.js', './manifest.json', './bethesda-logo.png', './recepcao.html', './reception.js', './admin.html', './admin.css', './admin.js', './emaus-admin-logo.png'];
 
 self.addEventListener('install', event => {
