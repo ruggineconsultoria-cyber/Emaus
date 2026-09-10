@@ -7,9 +7,9 @@ A Emaús é uma plataforma multi-igreja para acolhimento, visitantes, comunicaç
 - Frontend: GitHub Pages;
 - API: Railway;
 - Banco: PostgreSQL no projeto Railway `honest-gentleness`;
-- API pública: `https://attractive-spontaneity-production-0af5.up.railway.app`;
+- API pública: `https://emaus-production-2de0.up.railway.app`;
 - Verificação: `GET /health`;
-- Service worker: `emaus-shell-v35`;
+- Service worker: `emaus-shell-v36`;
 - Página pública: `publica.html?igreja=bethesda` (sem login);
 
 As senhas e chaves ficam somente nas variáveis privadas do Railway. Nunca coloque credenciais em arquivos do GitHub.
