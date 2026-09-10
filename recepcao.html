@@ -91,6 +91,51 @@
       .family-head { flex-direction:column; }
     }
   </style>
+
+  <style>
+    /* Tipografia ampliada para uso confortável em celulares. */
+    @media (max-width: 650px) {
+      body { font-size: 14px; }
+      .reception-shell { width: min(100% - 20px, 960px); padding-bottom: 34px; }
+      .reception-header { gap: 12px; padding: 10px 0 22px; }
+      .brand-mark { width: 50px; height: 50px; border-radius: 15px; font-size: 28px; }
+      .brand-copy small, .eyebrow { font-size: 11px; letter-spacing: .12em; }
+      .brand-copy h1 { font-size: 23px; }
+      .brand-copy p { font-size: 12px; line-height: 1.4; }
+      .top-action { min-height: 40px; padding: 0 11px; font-size: 12px; }
+      .login-card, .content-card { padding: 21px; }
+      h2 { font-size: 29px; line-height: 1.1; }
+      h3 { font-size: 18px; }
+      .intro { font-size: 14px; line-height: 1.55; }
+      .form-grid { gap: 15px; margin-top: 21px; }
+      .field { gap: 8px; }
+      label { font-size: 12px; }
+      input, select, textarea { min-height: 49px; padding: 12px 13px; border-radius: 11px; font-size: 14px; }
+      textarea { min-height: 105px; }
+      .primary-button { min-height: 49px; margin-top: 23px; font-size: 13px; }
+      .secondary-button { min-height: 44px; padding: 0 14px; font-size: 12px; }
+      .demo-note, .info-note { font-size: 12px; line-height: 1.6; }
+      .welcome { padding: 20px; gap: 14px; }
+      .welcome strong { font-size: 23px; }
+      .welcome p { font-size: 12px; line-height: 1.55; }
+      .welcome-chip { padding: 7px 10px; font-size: 10px; }
+      .card-head p { font-size: 12px; line-height: 1.55; }
+      .status { min-height: 26px; padding: 0 10px; font-size: 10px; }
+      .group-toggle { gap: 10px; padding: 14px; font-size: 12px; line-height: 1.55; }
+      .group-toggle strong { margin-bottom: 3px; font-size: 13px; }
+      .family-fields { padding: 15px; }
+      .family-head p { font-size: 11px; line-height: 1.5; }
+      .preview { margin-top: 19px; padding: 16px; }
+      .preview-label { font-size: 10px; }
+      .preview p { font-size: 17px; line-height: 1.55; }
+      .form-actions { gap: 12px; margin-top: 22px; padding-top: 19px; }
+      .form-actions .primary-button { min-height: 49px; }
+      .success { font-size: 12px; line-height: 1.55; }
+      .success strong { font-size: 13px; }
+      .footer { font-size: 11px; line-height: 1.5; }
+      .toast { font-size: 12px; line-height: 1.5; }
+    }
+  </style>
 </head>
 <body>
   <section id="emausSplash" role="status" aria-label="Abrindo a plataforma Emaús">

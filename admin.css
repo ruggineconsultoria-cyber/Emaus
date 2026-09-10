@@ -217,3 +217,82 @@ td strong { color: var(--ink); font-size: 10px; }
   th, td { padding-left: 11px; padding-right: 11px; }
   .auth-card { padding: 24px 18px; }
 }
+
+/* Escala de leitura ampliada para a plataforma administrativa. */
+.auth-card .field label,
+.admin-nav button,
+.page-head p,
+.panel-head p,
+.policy-banner p,
+.kpi-card small,
+.kpi-card span,
+.summary-row,
+.legend,
+th,
+td,
+.add-panel p,
+.plan-card p,
+.plan-limits,
+.plan-points li,
+.transaction-copy span,
+.empty { font-size: 12px; }
+.auth-card .field input,
+.auth-card .field select,
+.auth-card .field textarea,
+.plan-table input { font-size: 13px; }
+.btn { font-size: 12px; min-height: 42px; }
+.btn-small { font-size: 11px; min-height: 36px; }
+.policy-banner strong { font-size: 13px; }
+.policy-badge { font-size: 10px; }
+.kpi-card strong { font-size: 29px; }
+.panel-head h2 { font-size: 20px; }
+.summary-row strong,
+.transaction-copy strong,
+.transaction-value { font-size: 13px; }
+
+@media (max-width: 760px) {
+  .auth-card { padding: 28px 20px; }
+  .auth-card h1 { font-size: 32px; line-height: 1.12; }
+  .auth-card > p { font-size: 14px; }
+  .auth-card .field label { font-size: 12px; }
+  .auth-card .field input,
+  .auth-card .field select,
+  .auth-card .field textarea { min-height: 49px; padding: 12px 13px; font-size: 14px; }
+  .admin-top-brand strong { font-size: 23px; }
+  .admin-nav button { min-height: 44px; padding: 0 13px; font-size: 13px; }
+  .page-head h1 { font-size: 34px; line-height: 1.12; }
+  .page-head p { font-size: 14px; line-height: 1.55; }
+  .btn { min-height: 46px; padding: 0 15px; font-size: 13px; }
+  .btn-small { min-height: 40px; font-size: 12px; }
+  .policy-banner { gap: 11px; padding: 15px; }
+  .policy-banner strong { font-size: 14px; }
+  .policy-banner p { font-size: 12px; line-height: 1.55; }
+  .policy-badge { font-size: 10px; }
+  .kpi-card { min-height: 128px; padding: 16px; }
+  .kpi-card small { font-size: 12px; }
+  .kpi-card strong { margin-top: 12px; font-size: 26px; }
+  .kpi-card span { font-size: 11px; }
+  .panel-head h2 { font-size: 20px; }
+  .panel-head p { font-size: 12px; line-height: 1.55; }
+  .legend { font-size: 11px; }
+  th { font-size: 10px; }
+  td { font-size: 12px; }
+  td strong { font-size: 12px; }
+  .church-meta small,
+  .founder-label { font-size: 10px; }
+  .member-meter-line { font-size: 11px; }
+  .table-btn { min-height: 36px; padding: 0 11px; font-size: 10px; }
+  .add-panel h3 { font-size: 20px; }
+  .add-panel p,
+  .founder-form-note { font-size: 12px; line-height: 1.55; }
+  .plan-card h3 { font-size: 20px; }
+  .plan-price { font-size: 25px; }
+  .plan-card p,
+  .plan-limits,
+  .plan-points li { font-size: 12px; line-height: 1.55; }
+  .transaction-copy strong { font-size: 13px; }
+  .transaction-copy span,
+  .transaction-value,
+  .empty { font-size: 11px; }
+  .toast { font-size: 12px; line-height: 1.5; }
+}

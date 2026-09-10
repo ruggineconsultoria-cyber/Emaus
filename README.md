@@ -9,7 +9,7 @@ A Emaús é uma plataforma multi-igreja para acolhimento, visitantes, comunicaç
 - Banco: PostgreSQL no projeto Railway `honest-gentleness`;
 - API pública: `https://attractive-spontaneity-production-0af5.up.railway.app`;
 - Verificação: `GET /health`;
-- Service worker: `emaus-shell-v32`.
+- Service worker: `emaus-shell-v34`.
 
 As senhas e chaves ficam somente nas variáveis privadas do Railway. Nunca coloque credenciais em arquivos do GitHub.
 
