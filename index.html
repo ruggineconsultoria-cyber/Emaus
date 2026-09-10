@@ -1,195 +1,169 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#141414">
-  <meta name="description" content="Emaús — área de recepção e acolhimento da igreja.">
-  <link rel="manifest" href="../manifest.json">
-  <title>Recepção · Bethesda</title>
-  <style>
-    :root { --ink:#f5f1e9; --muted:#b8b0a4; --muted-2:#8d867d; --paper:#171716; --card:#242320; --card-2:#2b2925; --line:#423d34; --gold:#d7a84b; --gold-2:#e8c477; --copper:#b86f45; --success:#7eb793; --danger:#d4877b; --radius:18px; }
-    * { box-sizing:border-box; }
-    body { min-height:100vh; margin:0; color:var(--ink); background:radial-gradient(circle at 80% -10%, rgba(215,168,75,.16), transparent 34%), var(--paper); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    button,input,select,textarea { font:inherit; }
-    button { cursor:pointer; }
-    .reception-shell { width:min(100% - 30px, 960px); margin:0 auto; padding:24px 0 44px; }
-    .reception-header { display:flex; align-items:center; gap:13px; padding:10px 0 26px; }
-    .brand-mark { width:45px; height:45px; display:grid; place-items:center; flex:0 0 auto; border:1px solid rgba(255,255,255,.22); border-radius:14px; color:#211b12; background:linear-gradient(135deg,var(--gold-2),var(--copper)); font-family:Georgia,serif; font-size:26px; font-weight:700; text-decoration:none; overflow:hidden; }
-    .brand-mark img { width:100%; height:100%; object-fit:cover; }
-    .brand-copy { min-width:0; flex:1; }
-    .brand-copy small,.eyebrow { display:block; color:var(--gold-2); font-size:10px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
-    .brand-copy h1 { margin:4px 0 0; font-family:Georgia,serif; font-size:22px; font-weight:500; }
-    .brand-copy p { margin:3px 0 0; color:var(--muted); font-size:11px; }
-    .top-action { min-height:34px; padding:0 11px; border:1px solid var(--line); border-radius:9px; color:var(--muted); background:transparent; font-size:10px; }
-    .top-action:hover { color:var(--ink); border-color:#6b5a38; background:rgba(255,255,255,.05); }
-    .card { border:1px solid var(--line); border-radius:var(--radius); background:rgba(36,35,32,.96); box-shadow:0 18px 55px rgba(0,0,0,.2); }
-    .login-card { max-width:520px; margin:34px auto 0; padding:31px; }
-    h2 { margin:8px 0 8px; font-family:Georgia,serif; font-size:27px; font-weight:500; letter-spacing:-.02em; }
-    h3 { margin:0; font-size:15px; }
-    .intro { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
-    .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:23px; }
-    .field { display:flex; flex-direction:column; gap:6px; }
-    .field.full { grid-column:1 / -1; }
-    label { color:#d8d0c5; font-size:10px; font-weight:700; }
-    input,select,textarea { width:100%; min-height:42px; padding:10px 11px; border:1px solid var(--line); border-radius:10px; outline:0; color:var(--ink); background:#1c1b19; font-size:11px; }
-    textarea { min-height:86px; resize:vertical; }
-    input:focus,select:focus,textarea:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(215,168,75,.12); }
-    input::placeholder,textarea::placeholder { color:#766f66; }
-    .primary-button { width:100%; min-height:43px; margin-top:20px; border:0; border-radius:10px; color:#201a10; background:linear-gradient(135deg,var(--gold-2),var(--gold)); font-size:11px; font-weight:800; box-shadow:0 9px 24px rgba(215,168,75,.15); }
-    .primary-button:hover { filter:brightness(1.06); }
-    .secondary-button { min-height:37px; padding:0 12px; border:1px solid var(--line); border-radius:9px; color:var(--ink); background:var(--card-2); font-size:10px; font-weight:750; }
-    .secondary-button:hover { border-color:#765d31; background:#363128; }
-    .demo-note,.info-note { margin-top:15px; padding:11px 12px; border:1px solid #5d4a27; border-radius:10px; color:#c7b68d; background:#302817; font-size:10px; line-height:1.5; }
-    .demo-note strong,.info-note strong { color:var(--gold-2); }
-    .app-view { display:flex; flex-direction:column; gap:17px; }
-    .welcome { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:21px 23px; border:1px solid #5d4a27; border-radius:var(--radius); background:linear-gradient(120deg,#302817,#3b2920); }
-    .welcome strong { display:block; font-family:Georgia,serif; font-size:21px; font-weight:500; }
-    .welcome p { margin:5px 0 0; color:#cbbfb1; font-size:11px; }
-    .welcome-chip { padding:6px 9px; border-radius:7px; color:#d1e6d7; background:rgba(126,183,147,.15); font-size:9px; font-weight:800; white-space:nowrap; }
-    .content-card { padding:24px; }
-    .card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding-bottom:16px; border-bottom:1px solid var(--line); }
-    .card-head p { margin:5px 0 0; color:var(--muted); font-size:10px; line-height:1.5; }
-    .status { display:inline-flex; align-items:center; gap:5px; min-height:22px; padding:0 8px; border-radius:6px; color:#d1e6d7; background:rgba(126,183,147,.15); font-size:8px; font-weight:800; text-transform:uppercase; }
-    .status:before { content:""; width:5px; height:5px; border-radius:50%; background:var(--success); }
-    .group-toggle { display:flex; align-items:flex-start; gap:9px; margin-top:15px; padding:12px; border:1px solid #514631; border-radius:10px; color:var(--muted); background:#29251c; font-size:10px; line-height:1.4; }
-    .group-toggle input { width:15px; min-height:15px; margin:1px 0 0; accent-color:var(--gold); }
-    .group-toggle strong { display:block; color:var(--ink); font-size:10px; }
-    .family-fields { margin-top:13px; padding:13px; border:1px solid var(--line); border-radius:11px; background:#1f1e1c; }
-    .family-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:9px; }
-    .family-head p { margin:4px 0 0; color:var(--muted-2); font-size:9px; line-height:1.4; }
-    .family-list { display:flex; flex-direction:column; gap:8px; }
-    .family-row { display:flex; align-items:center; gap:7px; }
-    .family-row input { flex:1; }
-    .remove-member { width:32px; height:32px; padding:0; border:1px solid var(--line); border-radius:8px; color:var(--muted); background:transparent; }
-    .remove-member:hover { color:var(--danger); border-color:#70443e; }
-    .preview { margin-top:17px; padding:14px; border:1px solid #5d4a27; border-radius:11px; background:#302817; }
-    .preview-label { color:var(--gold-2); font-size:9px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
-    .preview p { margin:8px 0 0; color:#f4ead7; font-family:Georgia,serif; font-size:14px; line-height:1.65; white-space:pre-line; }
-    .form-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; margin-top:20px; padding-top:17px; border-top:1px solid var(--line); }
-    .form-actions .primary-button { width:auto; min-width:180px; margin-top:0; }
-    .success { display:flex; align-items:flex-start; gap:11px; margin-top:17px; padding:13px; border:1px solid rgba(126,183,147,.32); border-radius:10px; color:#d1e6d7; background:rgba(126,183,147,.1); font-size:10px; line-height:1.5; }
-    .success strong { display:block; margin-bottom:2px; font-size:11px; }
-    .success-icon { width:24px; height:24px; display:grid; place-items:center; flex:0 0 auto; border-radius:7px; color:var(--success); background:rgba(126,183,147,.15); font-weight:900; }
-    .toast { position:fixed; right:18px; bottom:18px; z-index:5; max-width:min(360px,calc(100% - 36px)); padding:12px 14px; border:1px solid #5d4a27; border-radius:10px; color:#f4ead7; background:#302817; box-shadow:0 12px 30px rgba(0,0,0,.28); font-size:10px; }
-    .footer { margin-top:22px; color:var(--muted-2); font-size:9px; text-align:center; }
-    .hidden { display:none !important; }
-    @media (max-width:650px) {
-      .reception-shell { width:min(100% - 22px, 960px); padding-top:13px; }
-      .reception-header { padding-bottom:18px; }
-      .brand-copy h1 { font-size:19px; }
-      .brand-copy p { font-size:10px; }
-      .top-action { padding:0 8px; font-size:9px; }
-      .login-card,.content-card { padding:18px; }
-      .form-grid { grid-template-columns:1fr; gap:12px; margin-top:18px; }
-      .field.full { grid-column:auto; }
-      .welcome { align-items:flex-start; flex-direction:column; padding:17px; }
-      .welcome strong { font-size:19px; }
-      .form-actions { align-items:stretch; flex-direction:column-reverse; }
-      .form-actions .primary-button,.form-actions .secondary-button { width:100%; }
-      .family-head { flex-direction:column; }
-    }
-  </style>
-
-  <style>
-    /* Tipografia ampliada para uso confortável em celulares. */
-    @media (max-width: 650px) {
-      body { font-size: 14px; }
-      .reception-shell { width: min(100% - 20px, 960px); padding-bottom: 34px; }
-      .reception-header { gap: 12px; padding: 10px 0 22px; }
-      .brand-mark { width: 50px; height: 50px; border-radius: 15px; font-size: 28px; }
-      .brand-copy small, .eyebrow { font-size: 11px; letter-spacing: .12em; }
-      .brand-copy h1 { font-size: 23px; }
-      .brand-copy p { font-size: 12px; line-height: 1.4; }
-      .top-action { min-height: 40px; padding: 0 11px; font-size: 12px; }
-      .login-card, .content-card { padding: 21px; }
-      h2 { font-size: 29px; line-height: 1.1; }
-      h3 { font-size: 18px; }
-      .intro { font-size: 14px; line-height: 1.55; }
-      .form-grid { gap: 15px; margin-top: 21px; }
-      .field { gap: 8px; }
-      label { font-size: 12px; }
-      input, select, textarea { min-height: 49px; padding: 12px 13px; border-radius: 11px; font-size: 14px; }
-      textarea { min-height: 105px; }
-      .primary-button { min-height: 49px; margin-top: 23px; font-size: 13px; }
-      .secondary-button { min-height: 44px; padding: 0 14px; font-size: 12px; }
-      .demo-note, .info-note { font-size: 12px; line-height: 1.6; }
-      .welcome { padding: 20px; gap: 14px; }
-      .welcome strong { font-size: 23px; }
-      .welcome p { font-size: 12px; line-height: 1.55; }
-      .welcome-chip { padding: 7px 10px; font-size: 10px; }
-      .card-head p { font-size: 12px; line-height: 1.55; }
-      .status { min-height: 26px; padding: 0 10px; font-size: 10px; }
-      .group-toggle { gap: 10px; padding: 14px; font-size: 12px; line-height: 1.55; }
-      .group-toggle strong { margin-bottom: 3px; font-size: 13px; }
-      .family-fields { padding: 15px; }
-      .family-head p { font-size: 11px; line-height: 1.5; }
-      .preview { margin-top: 19px; padding: 16px; }
-      .preview-label { font-size: 10px; }
-      .preview p { font-size: 17px; line-height: 1.55; }
-      .form-actions { gap: 12px; margin-top: 22px; padding-top: 19px; }
-      .form-actions .primary-button { min-height: 49px; }
-      .success { font-size: 12px; line-height: 1.55; }
-      .success strong { font-size: 13px; }
-      .footer { font-size: 11px; line-height: 1.5; }
-      .toast { font-size: 12px; line-height: 1.5; }
-    }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="description" content="Emaús — plataforma de gestão e comunicação para igrejas." />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="splash.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>Emaús • Plataforma da Igreja</title>
 </head>
 <body>
-  <main class="reception-shell">
-    <header class="reception-header">
-      <a class="brand-mark" id="churchLogo" href="../" aria-label="Voltar para a área da igreja">B</a>
-      <div class="brand-copy">
-        <small>Emaús · Recepção</small>
-        <h1 id="churchName">Bethesda</h1>
-        <p id="churchCity">Área de acolhimento da igreja</p>
+  <section id="emausSplash" role="status" aria-label="Abrindo a plataforma Emaús">
+    <div class="splash-inner">
+      <div class="splash-halo" aria-hidden="true"></div>
+      <div class="splash-logo-wrap">
+        <img id="splashLogo" class="splash-logo" src="bethesda-logo.png" alt="Logo da Bethesda">
+        <span id="splashLogoText" class="splash-logo-text" hidden>BE</span>
       </div>
-      <button class="top-action hidden" id="logoutButton" type="button">Sair</button>
-    </header>
+      <span id="splashKicker" class="splash-kicker">Emaús · Igreja Bethesda</span>
+      <strong class="splash-title">Seja bem-vindo</strong>
+      <p class="splash-subtitle">Um lugar para pertencer, crescer e viver a fé em comunidade.</p>
+    </div>
+  </section>
 
-    <section class="card login-card" id="loginView">
-      <span class="eyebrow">ACESSO DA RECEPÇÃO</span>
-      <h2>Entrar para acolher</h2>
-      <p class="intro">Use seu login individual para cadastrar visitantes, famílias e casais da igreja.</p>
-      <form id="loginForm">
-        <div class="form-grid">
-          <div class="field full"><label for="loginEmail">Login</label><input id="loginEmail" type="email" autocomplete="username" placeholder="seu@login.com.br" required></div>
-          <div class="field full"><label for="loginPassword">Senha</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Digite sua senha" required></div>
-        </div>
-        <button class="primary-button" type="submit">Entrar na recepção</button>
+  <section class="church-login-view" id="churchLoginView">
+    <div class="church-login-card">
+      <div class="church-login-brand"><img src="emaus-admin-logo.png" alt="Emaús"><div><strong>Emaús</strong><span>Área da igreja</span></div></div>
+      <span class="eyebrow">ACESSO PROTEGIDO</span>
+      <h1>Entrar na área da igreja</h1>
+      <p>Use o acesso do pastor ou administrador local para acompanhar o acolhimento e a vida da Bethesda.</p>
+      <form id="churchLoginForm">
+        <label for="churchLoginEmail">E-mail</label>
+        <input id="churchLoginEmail" name="email" type="email" autocomplete="username" placeholder="evandro@bethesda.com.br" required>
+        <label for="churchLoginPassword">Senha</label>
+        <input id="churchLoginPassword" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required>
+        <button class="church-login-button" type="submit">Entrar na área da igreja</button>
+        <p class="church-login-error is-hidden" id="churchLoginError"></p>
       </form>
-      <div class="demo-note"><strong>Acesso protegido:</strong> use o login e a senha cadastrados no Railway para a equipe da recepção. A senha não é exibida nesta página.</div>
-      <p id="loginMessage" class="intro hidden" style="margin-top:14px;color:#e1a49a;"></p>
-    </section>
+      <small class="church-login-note">A autenticação é feita pela API segura da Emaús. Os dados da igreja não ficam somente no navegador.</small>
+    </div>
+  </section>
+  <svg aria-hidden="true" class="svg-sprite" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="icon-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="icon-message" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></symbol>
+    <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></symbol>
+    <symbol id="icon-user-round" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19.4 15 .1.1a2 2 0 1 1-2.8 2.8l-.1-.1a2 2 0 0 0-3.4 1.4V19a2 2 0 1 1-4 0v-.2A2 2 0 0 0 5.8 17l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A2 2 0 0 0 1.6 11.7H2a2 2 0 1 1 0-4h-.2A2 2 0 0 1 3.2 4.3l.1.1A2 2 0 0 0 6.7 3V3a2 2 0 1 1 4 0v.2A2 2 0 0 0 14.2 5l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a2 2 0 0 0 1.4 3.4h.2a2 2 0 1 1 0 4h-.2a2 2 0 0 0-1.4 3.4Z" transform="scale(.9) translate(1.3 1.3)"/></symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+    <symbol id="icon-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="icon-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="icon-arrow-up-right" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
+    <symbol id="icon-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="icon-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="icon-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+    <symbol id="icon-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+    <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="icon-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="icon-megaphone" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 13v-2ZM3 13l2 7h4l-2-6M15 8v8"/></symbol>
+    <symbol id="icon-clipboard-check" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M8 13l2.5 2.5L16 10"/></symbol>
+    <symbol id="icon-smartphone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 5.2-3.4 8.5-8 10-4.6-1.5-8-4.8-8-10V6l8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-4.8"/></symbol>
+    <symbol id="icon-building" viewBox="0 0 24 24"><path d="M4 21V5l8-3 8 3v16M2 21h20M9 21v-4h6v4M8 8h.01M12 8h.01M16 8h.01M8 12h.01M12 12h.01M16 12h.01"/></symbol>
+    <symbol id="icon-crown" viewBox="0 0 24 24"><path d="m3 7 4 4 5-7 5 7 4-4-2 12H5L3 7Z"/><path d="M5 19h14"/></symbol>
+    <symbol id="icon-log-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+    <symbol id="icon-external" viewBox="0 0 24 24"><path d="M14 3h7v7M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M20 11a8.1 8.1 0 0 0-14.8-3L3 11M3 5v6h6M4 13a8.1 8.1 0 0 0 14.8 3L21 13m0 6v-6h-6"/></symbol>
+    <symbol id="icon-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+    <symbol id="icon-whatsapp" viewBox="0 0 24 24"><path d="M20 11.5a8.3 8.3 0 0 1-12.3 7.3L4 20l1.2-3.5A8.3 8.3 0 1 1 20 11.5Z"/><path d="M8.5 8.6c.2-.4.4-.4.7-.4h.5c.2 0 .4.1.5.4l.6 1.3c.1.2.1.4 0 .6l-.4.5c-.1.1-.1.3 0 .5.4.7 1.1 1.3 1.8 1.7.2.1.4.1.5-.1l.5-.6c.1-.2.3-.2.5-.1l1.4.6c.2.1.3.3.3.5-.1.6-.3 1.1-.7 1.4-.4.3-1 .4-1.6.2-2.9-.8-5-2.8-5.9-5.5-.2-.5-.1-1 .1-1.5l.2-.5Z"/></symbol>
+    <symbol id="icon-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></symbol>
+    <symbol id="icon-sparkle" viewBox="0 0 24 24"><path d="m12 3 1.4 5.6L19 10l-5.6 1.4L12 17l-1.4-5.6L5 10l5.6-1.4L12 3ZM19 16l.7 2.3L22 19l-.7 2.3L19 22l-.7-2.3L16 19l2.3-.7L19 16Z"/></symbol>
+    <symbol id="icon-heart" viewBox="0 0 24 24"><path d="M20.8 8.8c0 5.5-8.8 10.7-8.8 10.7S3.2 14.3 3.2 8.8A4.8 4.8 0 0 1 12 6a4.8 4.8 0 0 1 8.8 2.8Z"/></symbol>
+    <symbol id="icon-expand" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5"/></symbol>
+  </svg>
 
-    <section class="app-view hidden" id="appView">
-      <div class="welcome"><div><span class="eyebrow">ACOLHIMENTO</span><strong id="welcomeTitle">Olá!</strong><p>Registre cada pessoa com carinho e mantenha os grupos juntos para o anúncio.</p></div><span class="welcome-chip">Acesso autorizado</span></div>
-      <section class="card content-card">
-        <div class="card-head"><div><h3>Novo visitante</h3><p>Os dados serão enviados para a área dos pastores e para o Acolhimento.</p></div><span class="status">Igreja ativa</span></div>
-        <form id="visitorForm">
-          <div class="form-grid">
-            <div class="field full"><label for="visitorName">Nome principal *</label><input id="visitorName" name="name" placeholder="Ex.: João da Silva" required></div>
-            <div class="field"><label for="visitorPhone">Telefone / WhatsApp</label><input id="visitorPhone" name="phone" placeholder="(21) 99999-9999"></div>
-            <div class="field"><label for="visitorDate">Data da visita *</label><input id="visitorDate" name="date" type="date" required></div>
-            <div class="field"><label for="visitorService">Culto ou evento</label><select id="visitorService" name="service"><option>Culto de Celebração</option><option>Culto da Família</option><option>Culto de Ensino</option><option>Santa Ceia</option><option>Outro evento</option></select></div>
-            <div class="field"><label for="visitorArrival">Como veio? *</label><select id="visitorArrival" name="arrivalType" required><option>Sozinho</option><option>Com amigos</option><option>Em casal</option><option>Família</option></select></div>
-            <div class="field"><label for="visitorFamilyName">Nome da família ou grupo</label><input id="visitorFamilyName" name="familyName" placeholder="Ex.: Família Nogueira"></div>
-            <div class="field"><label for="visitorInvitedBy">Quem convidou?</label><input id="visitorInvitedBy" name="invitedBy" placeholder="Nome ou equipe"></div>
-            <div class="field full"><label for="visitorNotes">Observações</label><textarea id="visitorNotes" name="notes" placeholder="Algum detalhe importante para o cuidado?"></textarea></div>
-          </div>
-          <label class="group-toggle"><input id="registerGroup" name="registerGroup" type="checkbox"><span><strong>Cadastrar pessoas que vieram juntas</strong>Adicione todos os nomes para que a mensagem fique organizada como “Família Nogueira: Nome 1, Nome 2 e Nome 3”.</span></label>
-          <div class="family-fields hidden" id="familyFields"><div class="family-head"><div><label>Nomes para anunciar</label><p>O nome principal já será incluído. Adicione os outros nomes do grupo.</p></div><button class="secondary-button" id="addMember" type="button">+ Adicionar pessoa</button></div><div class="family-list" id="familyList"></div></div>
-          <div class="preview"><span class="preview-label">Prévia da mensagem</span><p id="messagePreview">Sozinho: informe o nome do visitante.</p></div>
-          <div class="form-actions"><button class="secondary-button" id="clearForm" type="button">Limpar</button><button class="primary-button" type="submit">Salvar visitante</button></div>
-        </form>
-        <div class="success hidden" id="successMessage"><span class="success-icon">✓</span><div><strong>Cadastro salvo com sucesso.</strong><span id="successText">O pastor já poderá visualizar este visitante no Acolhimento.</span></div></div>
-      </section>
+  <div class="app-shell is-hidden" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark" id="sidebarLogoMark"><span id="sidebarLogoSymbol">B</span><img id="sidebarLogoImage" alt="" hidden></div>
+        <div class="brand-copy">
+          <span class="brand-kicker">IGREJA</span>
+          <strong id="sidebarBrandName">Bethesda</strong>
+        </div>
+        <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Fechar menu"><svg class="icon"><use href="#icon-x"></use></svg></button>
+      </div>
+
+      <button class="church-switcher" id="churchSwitcher" aria-label="Trocar igreja">
+        <span class="church-avatar" id="sidebarChurchSymbol">BT</span>
+        <span class="church-switcher-copy"><small>Igreja ativa</small><strong id="activeChurchName">Bethesda</strong></span>
+        <svg class="icon icon-muted"><use href="#icon-chevron-down"></use></svg>
+      </button>
+
+      <nav class="main-nav" aria-label="Navegação principal">
+        <span class="nav-label">VISÃO GERAL</span>
+        <button class="nav-item active" data-view="dashboard"><svg class="icon"><use href="#icon-grid"></use></svg><span>Início</span></button>
+        <button class="nav-item" data-view="acolhimento"><svg class="icon"><use href="#icon-heart"></use></svg><span>Acolhimento</span></button>
+        <button class="nav-item" data-view="visitors"><svg class="icon"><use href="#icon-users"></use></svg><span>Visitantes</span><em class="nav-count">3</em></button>
+        <button class="nav-item nav-pulpit" data-view="pulpit"><svg class="icon"><use href="#icon-megaphone"></use></svg><span>Modo púlpito</span><em class="nav-live">AO VIVO</em></button>
+        <button class="nav-item" data-view="communication"><svg class="icon"><use href="#icon-message"></use></svg><span>Comunicação</span></button>
+        <button class="nav-item" data-view="agenda"><svg class="icon"><use href="#icon-calendar"></use></svg><span>Agenda</span></button>
+
+        <span class="nav-label nav-label-spaced">ADMINISTRAÇÃO</span>
+        <button class="nav-item" data-view="leaders"><svg class="icon"><use href="#icon-user-round"></use></svg><span>Lideranças</span></button>
+        <button class="nav-item" data-view="settings"><svg class="icon"><use href="#icon-settings"></use></svg><span>Configurações</span></button>
+        <button class="nav-item" data-action="export"><svg class="icon"><use href="#icon-download"></use></svg><span>Exportar dados</span></button>
+      </nav>
+
+      <div class="sidebar-promo">
+        <div class="promo-icon"><svg class="icon"><use href="#icon-crown"></use></svg></div>
+        <div>
+          <strong>Pronto para crescer?</strong>
+          <p>Tenha sua igreja organizada em um só lugar.</p>
+          <button data-view="settings" class="text-link">Conhecer recursos <svg class="icon"><use href="#icon-arrow-up-right"></use></svg></button>
+        </div>
+      </div>
+
+      <div class="sidebar-user">
+        <div class="avatar avatar-gold">ES</div>
+        <div class="sidebar-user-copy"><strong id="sidebarUserName">Evandro & Simone</strong><span id="sidebarUserRole">Pastor da igreja</span></div>
+        <button class="icon-btn" id="logoutBtn" aria-label="Sair"><svg class="icon"><use href="#icon-log-out"></use></svg></button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-btn mobile-menu" id="mobileMenu" aria-label="Abrir menu"><svg class="icon"><use href="#icon-menu"></use></svg></button>
+          <button class="icon-btn back-btn is-hidden" id="backBtn" data-action="go-back" aria-label="Voltar para a página anterior" title="Voltar"><svg class="icon"><use href="#icon-arrow-left"></use></svg></button>
+          <div class="breadcrumb"><strong id="breadcrumbCurrent">Início</strong></div>
+        </div>
+        <div class="topbar-church" aria-label="Igreja ativa">
+          <span class="topbar-church-mark" id="topbarChurchMark"><span id="topbarLogoSymbol">B</span><img id="topbarLogoImage" alt="" hidden></span>
+          <span class="topbar-church-copy"><small>IGREJA</small><strong id="topbarChurchName">Bethesda</strong></span>
+        </div>
+        <div class="topbar-actions">
+          <button class="search-trigger icon-btn" id="searchTrigger" aria-label="Buscar" title="Buscar"><svg class="icon"><use href="#icon-search"></use></svg></button>
+          <button class="icon-btn notification-btn" id="notificationBtn" aria-label="Notificações"><svg class="icon"><use href="#icon-bell"></use></svg><span class="notification-dot">3</span></button>
+          <div class="topbar-divider"></div>
+          <div class="top-profile"><div class="avatar avatar-gold">ES</div><div><strong id="topProfileName">Evandro & Simone</strong><span id="topProfileRole">Pastor da igreja</span></div><svg class="icon icon-muted"><use href="#icon-chevron-down"></use></svg></div>
+        </div>
+      </header>
+
+      <div class="page-container" id="appContent"></div>
+    </main>
+  </div>
+
+
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header"><div><span class="eyebrow" id="modalEyebrow">BETHESDA</span><h2 id="modalTitle">Novo cadastro</h2></div><button class="icon-btn" id="modalClose" aria-label="Fechar"><svg class="icon"><use href="#icon-x"></use></svg></button></div>
+      <div id="modalBody"></div>
     </section>
-    <footer class="footer">Emaús · Recepção da <span id="footerChurchName">Bethesda</span> · <a href="../" style="color:#d7a84b;">Voltar para a área da igreja</a></footer>
-  </main>
-  <div class="toast hidden" id="toast"></div>
-  <script src="../api-config.js"></script>
-  <script src="reception.js"></script>
+  </div>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <script src="splash.js"></script>
+  <script src="api-config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
