@@ -2,6 +2,9 @@ const STATE_KEY = 'batesda-platform-state-v1';
 const BACKUP_KEY = 'batesda-platform-backups-v1';
 const BACKUP_LIMIT = 30;
 const SESSION_KEY = 'emaus-reception-session';
+const RECEPTION_TOKEN_KEY = 'emaus-reception-token';
+const RECEPTION_USER_KEY = 'emaus-reception-user';
+const API_BASE = String(window.EMAUS_API_URL || '').replace(/\/$/, '');
 const TODAY = new Date().toISOString().slice(0, 10);
 
 const fallbackState = {
@@ -18,6 +21,34 @@ const fallbackState = {
 
 let state = loadState();
 let currentUser = null;
+
+async function apiRequest(path, options = {}) {
+  if (!API_BASE) throw new Error('A URL da API da Emaús não foi configurada.');
+  const token = sessionStorage.getItem(RECEPTION_TOKEN_KEY);
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers, body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body });
+  let payload = {};
+  try { payload = await response.json(); } catch (error) {}
+  if (!response.ok) {
+    if (response.status === 401) sessionStorage.removeItem(RECEPTION_TOKEN_KEY);
+    throw new Error(payload.error || `A API respondeu com HTTP ${response.status}.`);
+  }
+  return payload;
+}
+
+async function loadRemoteChurchData() {
+  const [churchPayload, visitorPayload] = await Promise.all([apiRequest('/api/church/settings'), apiRequest('/api/church/visitors')]);
+  const church = churchPayload.church;
+  if (church) {
+    state.activeChurchId = church.id;
+    state.churches = [{ id: church.id, name: church.name, city: church.city, initials: initials(church.name), logoSymbol: initials(church.name).slice(0, 2), logoImage: String(church.slug || '').toLowerCase() === 'bethesda' ? 'bethesda-logo.png' : '' }];
+  }
+  state.visitors = (visitorPayload.visitors || []).map(visitor => ({
+    id: visitor.id, name: visitor.name, familyName: visitor.family_name || '', familyMembers: Array.isArray(visitor.family_members) ? visitor.family_members : [visitor.name], arrivalType: visitor.arrival_type || 'Sozinho', announced: Boolean(visitor.announced), phone: visitor.phone || '', date: visitor.visit_date || TODAY, service: visitor.service || 'Culto de Celebração', neighborhood: '', invitedBy: visitor.invited_by || '', status: visitor.status || 'Novo', responsible: visitor.responsible || 'Recepção', notes: visitor.notes || '', consent: true, churchId: visitor.church_id
+  }));
+  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+}
 
 function loadState() {
   try {
@@ -163,6 +194,7 @@ function renderChurchIdentity() {
 function showLoggedInView(user) {
   currentUser = user;
   sessionStorage.setItem(SESSION_KEY, user.id);
+  sessionStorage.setItem(RECEPTION_USER_KEY, JSON.stringify(user));
   document.querySelector('#loginView').classList.add('hidden');
   document.querySelector('#appView').classList.remove('hidden');
   document.querySelector('#logoutButton').classList.remove('hidden');
@@ -175,71 +207,76 @@ function showLoggedInView(user) {
 function showLoggedOutView() {
   currentUser = null;
   sessionStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(RECEPTION_TOKEN_KEY);
+  sessionStorage.removeItem(RECEPTION_USER_KEY);
   document.querySelector('#loginView').classList.remove('hidden');
   document.querySelector('#appView').classList.add('hidden');
   document.querySelector('#logoutButton').classList.add('hidden');
 }
 
-function handleLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
   const email = document.querySelector('#loginEmail').value.trim().toLowerCase();
   const password = document.querySelector('#loginPassword').value;
   const message = document.querySelector('#loginMessage');
-  const user = (state.receptionUsers || []).find(item => String(item.login || '').toLowerCase() === email);
-  const passwordMatches = user && (!user.password || user.password === password);
-  const hasPermission = user && (!Array.isArray(user.permissions) || user.permissions.includes('acolhimento'));
-  if (!password || !user || !passwordMatches || user.status === 'Bloqueado' || !hasPermission) {
-    message.textContent = user?.status === 'Bloqueado' ? 'Este acesso está bloqueado. Fale com o pastor da igreja.' : 'Confira o login cadastrado na recepção e tente novamente.';
+  const button = document.querySelector('#loginForm button[type=submit]');
+  if (!email || !password) { message.textContent = 'Informe o login e a senha.'; message.classList.remove('hidden'); return; }
+  button.disabled = true;
+  button.textContent = 'Conectando...';
+  try {
+    const payload = await apiRequest('/api/auth/login', { method: 'POST', body: { email, password } });
+    if (!['church_admin', 'reception'].includes(payload.user?.role)) throw new Error('Este acesso não pertence à área da igreja.');
+    sessionStorage.setItem(RECEPTION_TOKEN_KEY, payload.token);
+    await loadRemoteChurchData();
+    message.classList.add('hidden');
+    showLoggedInView(payload.user);
+  } catch (loginError) {
+    sessionStorage.removeItem(RECEPTION_TOKEN_KEY);
+    message.textContent = loginError.message || 'Não foi possível conectar à API da Emaús.';
     message.classList.remove('hidden');
-    return;
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Entrar na recepção';
   }
-  message.classList.add('hidden');
-  showLoggedInView(user);
 }
 
-function handleVisitorSubmit(event) {
+async function handleVisitorSubmit(event) {
   event.preventDefault();
   const values = getFormValues();
   if (!values.name) return showToast('Informe o nome principal do visitante.');
   const form = document.querySelector('#visitorForm');
   const data = new FormData(form);
-  const church = getChurch();
-  const visitor = {
-    id: `v-${Date.now()}`,
-    name: values.name,
-    familyName: String(data.get('familyName') || '').trim(),
-    familyMembers: values.members.length ? values.members : [values.name],
-    arrivalType: values.type,
-    announced: false,
-    phone: String(data.get('phone') || '').trim(),
-    date: String(data.get('date') || TODAY),
-    service: String(data.get('service') || 'Culto de Celebração'),
-    neighborhood: '',
-    invitedBy: String(data.get('invitedBy') || '').trim(),
-    status: 'Novo',
-    responsible: currentUser?.name || 'Recepção',
-    notes: String(data.get('notes') || '').trim(),
-    consent: true,
-    churchId: church.id
-  };
-  state.visitors = Array.isArray(state.visitors) ? state.visitors : [];
-  state.visitors.unshift(visitor);
-  state.metrics = { visits: 0, returns: 0, reach: 0, announcements: 0, ...(state.metrics || {}) };
-  state.metrics.visits += 1;
-  state.activity = Array.isArray(state.activity) ? state.activity : [];
-  state.activity.unshift({ type: 'visitor', name: visitor.familyName || visitor.name, text: visitor.familyMembers.length > 1 ? `foi cadastrada com ${visitor.familyMembers.length} pessoas do grupo.` : 'foi cadastrada como nova visitante.', time: 'Agora', initials: initials(visitor.familyName || visitor.name), tone: 'copper' });
-  saveReceptionState('Novo visitante cadastrado pela recepção');
-  document.querySelector('#successText').textContent = `${values.message}. O pastor já poderá visualizar este cadastro no Acolhimento.`;
-  document.querySelector('#successMessage').classList.remove('hidden');
-  form.reset();
-  document.querySelector('#visitorDate').value = TODAY;
-  document.querySelector('#familyList').innerHTML = '';
-  document.querySelector('#familyFields').classList.add('hidden');
-  updatePreview();
-  showToast('Visitante salvo e backup automático realizado.');
+  const button = form.querySelector('button[type=submit]');
+  button.disabled = true;
+  try {
+    await apiRequest('/api/church/visitors', { method: 'POST', body: {
+      name: values.name,
+      familyName: String(data.get('familyName') || '').trim(),
+      familyMembers: values.members.length ? values.members : [values.name],
+      arrivalType: values.type,
+      phone: String(data.get('phone') || '').trim(),
+      visitDate: String(data.get('date') || TODAY),
+      service: String(data.get('service') || 'Culto de Celebração'),
+      invitedBy: String(data.get('invitedBy') || '').trim(),
+      notes: String(data.get('notes') || '').trim()
+    }});
+    await loadRemoteChurchData();
+    document.querySelector('#successText').textContent = `${values.message}. O pastor já poderá visualizar este cadastro no Acolhimento.`;
+    document.querySelector('#successMessage').classList.remove('hidden');
+    form.reset();
+    document.querySelector('#visitorDate').value = TODAY;
+    document.querySelector('#familyList').innerHTML = '';
+    document.querySelector('#familyFields').classList.add('hidden');
+    updatePreview();
+    showToast('Visitante salvo no banco de produção.');
+  } catch (error) {
+    showToast(`Não foi possível salvar o visitante: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
 }
 
-function init() {
+async function init() {
   renderChurchIdentity();
   document.querySelector('#loginForm').addEventListener('submit', handleLogin);
   document.querySelector('#visitorForm').addEventListener('submit', handleVisitorSubmit);
@@ -267,9 +304,18 @@ function init() {
   document.querySelector('#loginEmail').value = 'mariana@bethesda.com.br';
   document.querySelector('#visitorDate').value = TODAY;
   const sessionUserId = sessionStorage.getItem(SESSION_KEY);
-  const sessionUser = (state.receptionUsers || []).find(user => user.id === sessionUserId && user.status !== 'Bloqueado');
-  if (sessionUser) showLoggedInView(sessionUser);
-  else showLoggedOutView();
+  const savedUser = sessionStorage.getItem(RECEPTION_USER_KEY);
+  if (sessionUserId && sessionStorage.getItem(RECEPTION_TOKEN_KEY) && savedUser) {
+    try {
+      const me = await apiRequest('/api/me');
+      await loadRemoteChurchData();
+      showLoggedInView(me.user || JSON.parse(savedUser));
+    } catch (error) {
+      showLoggedOutView();
+    }
+  } else {
+    showLoggedOutView();
+  }
   updatePreview();
 }
 

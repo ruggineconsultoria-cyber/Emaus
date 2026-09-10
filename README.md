@@ -1,34 +1,38 @@
-# Emaús API para Railway
+# Emaús — Plataforma da Igreja
 
-API inicial da plataforma Emaús, preparada para rodar em um serviço separado no Railway e usar o PostgreSQL do projeto `honest-gentleness`.
+A Emaús é uma plataforma multi-igreja para acolhimento, visitantes, comunicação, agenda e administração central. A Bethesda continua cadastrada como a primeira igreja da plataforma.
 
-## Segurança
+## Produção atual
 
-Nunca coloque senhas, `JWT_SECRET` ou `service_role` em arquivos públicos. Configure as variáveis privadas no Railway.
+- Frontend: GitHub Pages;
+- API: Railway;
+- Banco: PostgreSQL no projeto Railway `honest-gentleness`;
+- API pública: `https://attractive-spontaneity-production-0af5.up.railway.app`;
+- Verificação: `GET /health`;
+- Service worker: `emaus-shell-v31`.
 
-## Variáveis obrigatórias
+As senhas e chaves ficam somente nas variáveis privadas do Railway. Nunca coloque credenciais em arquivos do GitHub.
 
-- `DATABASE_URL`: referência ao PostgreSQL do Railway;
-- `JWT_SECRET`: chave longa e aleatória;
-- `CORS_ORIGIN`: `https://ruggineconsultoria-cyber.github.io`;
-- `ADMIN_EMAIL` e `ADMIN_PASSWORD`;
-- `PASTOR_EMAIL` e `PASTOR_PASSWORD`;
-- `RECEPTION_EMAIL` e `RECEPTION_PASSWORD`.
+## Acessos de produção
 
-A API cria as tabelas automaticamente na primeira inicialização, mantém a Bethesda, cria os três planos Emaús e registra auditoria das alterações. A senha do administrador é definida somente pelas variáveis privadas do Railway.
+- Administrador da plataforma: e-mail configurado em `ADMIN_EMAIL` e senha configurada em `ADMIN_PASSWORD`, em `/admin.html`;
+- Pastor da Bethesda: e-mail configurado em `PASTOR_EMAIL` e senha configurada em `PASTOR_PASSWORD`, na página principal;
+- Recepção: e-mail configurado em `RECEPTION_EMAIL` e senha configurada em `RECEPTION_PASSWORD`, em `/recepcao.html`.
 
-## Rotas principais
+As senhas não são documentadas neste arquivo.
 
-- `GET /health` — verificação do serviço;
-- `POST /api/auth/login` — login;
-- `GET /api/admin/summary` — resumo administrativo;
-- `GET /api/admin/churches` — organizações;
-- `PATCH /api/admin/churches/:id/status` — bloquear/liberar;
-- `GET/PUT /api/admin/plans` — planos e preços;
-- `GET/POST /api/admin/expenses` — gastos;
-- `GET/POST /api/church/visitors` — visitantes e acolhimento;
-- `GET/PUT /api/church/settings` — identidade da igreja.
+## Oferta comercial mantida
 
-## Deploy
+- 30 dias grátis;
+- Essencial: R$ 49,90/mês, até 100 pessoas ativas e 5 acessos;
+- Cuidado: R$ 99,90/mês, até 300 pessoas ativas e 12 acessos;
+- Rede: R$ 179,90/mês, até 800 pessoas ativas e 25 acessos;
+- primeiras 40 igrejas com preço congelado por 12 meses;
+- nenhuma cobrança adicional;
+- nenhum sistema de créditos.
 
-No Railway, crie um serviço separado chamado `emaus-api`, conecte-o ao diretório deste pacote e configure as variáveis acima. Não altere o serviço privado `glow-platform`.
+## Desenvolvimento
+
+A API usa Node.js, Express e PostgreSQL. `server.js`, `schema.sql` e `package.json` na raiz são usados pelo Railway. O banco cria as tabelas e mantém a Bethesda na primeira inicialização.
+
+O frontend usa `api-config.js` apenas para o endereço público da API. Não inclua senhas nesse arquivo.

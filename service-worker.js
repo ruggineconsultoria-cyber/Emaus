@@ -1,5 +1,5 @@
-const CACHE_NAME = 'emaus-shell-v30';
-const APP_SHELL = ['./', './index.html', './styles.css', './splash.css', './splash.js', './app.js', './manifest.json', './bethesda-logo.png', './recepcao.html', './reception.js', './admin.html', './admin.css', './admin.js', './emaus-admin-logo.png'];
+const CACHE_NAME = 'emaus-shell-v31';
+const APP_SHELL = ['./', './index.html', './styles.css', './splash.css', './splash.js', './app.js', './api-config.js', './manifest.json', './bethesda-logo.png', './recepcao.html', './reception.js', './admin.html', './admin.css', './admin.js', './emaus-admin-logo.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));

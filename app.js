@@ -3,6 +3,9 @@ const PLATFORM_NAME = 'Emaús';
 const STORAGE_KEY = 'batesda-platform-state-v1';
 const TODAY = '2026-09-04';
 const DEFAULT_APPEARANCE = { theme: 'light', font: 'editorial', primary: '#d7a84b', accent: '#b86f45' };
+const API_BASE = String(window.EMAUS_API_URL || '').replace(/\/$/, '');
+const CHURCH_TOKEN_KEY = 'emaus-church-token';
+const CHURCH_USER_KEY = 'emaus-church-user';
 const PALETTES = {
   batesda: { label: 'Dourado & cobre', primary: '#d7a84b', accent: '#b86f45' },
   oceano: { label: 'Oceano & areia', primary: '#5b8396', accent: '#c88955' },
@@ -64,7 +67,137 @@ const defaultState = {
 
 let state = loadState();
 let pendingLogoImage = null;
+let churchAuthReady = false;
 const viewHistory = [];
+
+async function apiRequest(path, options = {}) {
+  if (!API_BASE) throw new Error('A URL da API da Emaús não foi configurada.');
+  const token = sessionStorage.getItem(CHURCH_TOKEN_KEY);
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers, body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body });
+  let payload = {};
+  try { payload = await response.json(); } catch (error) {}
+  if (!response.ok) {
+    if (response.status === 401) sessionStorage.removeItem(CHURCH_TOKEN_KEY);
+    throw new Error(payload.error || `A API respondeu com HTTP ${response.status}.`);
+  }
+  return payload;
+}
+
+function mapApiVisitor(visitor) {
+  return {
+    id: visitor.id,
+    name: visitor.name,
+    familyName: visitor.family_name || '',
+    familyMembers: Array.isArray(visitor.family_members) ? visitor.family_members : [visitor.name],
+    arrivalType: visitor.arrival_type || 'Sozinho',
+    announced: Boolean(visitor.announced),
+    phone: visitor.phone || '',
+    date: visitor.visit_date || TODAY,
+    service: visitor.service || 'Culto de Celebração',
+    neighborhood: '',
+    invitedBy: visitor.invited_by || '',
+    status: visitor.status || 'Novo',
+    responsible: visitor.responsible || 'Recepção',
+    notes: visitor.notes || '',
+    consent: true,
+    churchId: visitor.church_id
+  };
+}
+
+async function loadRemoteChurchState(user) {
+  const [settingsPayload, visitorsPayload] = await Promise.all([apiRequest('/api/church/settings'), apiRequest('/api/church/visitors')]);
+  const church = settingsPayload.church;
+  if (church) {
+    state.activeChurchId = church.id;
+    state.churches = [{
+      id: church.id,
+      name: church.name,
+      city: church.city,
+      phone: church.phone || '',
+      pastors: church.pastors || '',
+      description: church.description || '',
+      initials: initials(church.name),
+      logoSymbol: initials(church.name).slice(0, 2),
+      logoImage: String(church.slug || '').toLowerCase() === 'bethesda' ? 'bethesda-logo.png' : '',
+      appearance: { ...DEFAULT_APPEARANCE },
+      members: Number(church.member_count || 0),
+      status: church.status === 'blocked' ? 'Bloqueada' : 'Ativa',
+      plan: church.plan_id || 'cuidado'
+    }];
+  }
+  state.visitors = (visitorsPayload.visitors || []).map(mapApiVisitor);
+  state.metrics = { ...(state.metrics || {}), visits: state.visitors.length, returns: state.visitors.filter(visitor => ['Retornou', 'Integrado'].includes(visitor.status)).length, reach: Number(church?.member_count || 0) };
+  state.currentUser = { name: user?.name || 'Pastor', role: 'Pastor da igreja', roleKey: user?.role || 'church_admin', churchId: user?.churchId || state.activeChurchId };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function showChurchLogin() {
+  $('#churchLoginView')?.classList.remove('is-hidden');
+  $('#appShell')?.classList.add('is-hidden');
+}
+
+function showChurchApp() {
+  $('#churchLoginView')?.classList.add('is-hidden');
+  $('#appShell')?.classList.remove('is-hidden');
+  churchAuthReady = true;
+  applyAppearance();
+  render();
+}
+
+async function handleChurchLogin(event) {
+  event.preventDefault();
+  const form = event.target;
+  const email = String(new FormData(form).get('email') || '').trim().toLowerCase();
+  const password = String(new FormData(form).get('password') || '');
+  const error = $('#churchLoginError');
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  button.textContent = 'Conectando...';
+  try {
+    const payload = await apiRequest('/api/auth/login', { method: 'POST', body: { email, password } });
+    if (!['church_admin'].includes(payload.user?.role)) throw new Error('Este acesso não pertence à área do pastor.');
+    sessionStorage.setItem(CHURCH_TOKEN_KEY, payload.token);
+    sessionStorage.setItem(CHURCH_USER_KEY, JSON.stringify(payload.user));
+    await loadRemoteChurchState(payload.user);
+    error.classList.add('is-hidden');
+    showChurchApp();
+  } catch (loginError) {
+    sessionStorage.removeItem(CHURCH_TOKEN_KEY);
+    sessionStorage.removeItem(CHURCH_USER_KEY);
+    error.textContent = loginError.message || 'Não foi possível conectar à API da Emaús.';
+    error.classList.remove('is-hidden');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Entrar na área da igreja';
+  }
+}
+
+async function bootstrapChurchAuth() {
+  showChurchLogin();
+  $('#churchLoginForm')?.addEventListener('submit', handleChurchLogin);
+  const token = sessionStorage.getItem(CHURCH_TOKEN_KEY);
+  const savedUser = sessionStorage.getItem(CHURCH_USER_KEY);
+  if (!token || !savedUser) return;
+  try {
+    const me = await apiRequest('/api/me');
+    if (me.user?.role !== 'church_admin') throw new Error('Acesso não autorizado.');
+    await loadRemoteChurchState(me.user);
+    showChurchApp();
+  } catch (error) {
+    sessionStorage.removeItem(CHURCH_TOKEN_KEY);
+    sessionStorage.removeItem(CHURCH_USER_KEY);
+    showChurchLogin();
+  }
+}
+
+function logoutChurch() {
+  sessionStorage.removeItem(CHURCH_TOKEN_KEY);
+  sessionStorage.removeItem(CHURCH_USER_KEY);
+  churchAuthReady = false;
+  showChurchLogin();
+}
 
 const viewMeta = {
   dashboard: { label: 'Início' },
@@ -765,7 +898,7 @@ function showToast(message, kind = 'success') {
   setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(6px)'; setTimeout(() => toast.remove(), 250); }, 3600);
 }
 
-function handleSubmit(event) {
+async function handleSubmit(event) {
   const form = event.target.closest('form[data-form]');
   if (!form) return;
   event.preventDefault();
@@ -776,11 +909,25 @@ function handleSubmit(event) {
     if (!name) return showToast('Informe o nome do visitante.', 'error');
     const additionalFamilyMembers = data.getAll('familyMembers').map(member => String(member).trim()).filter(Boolean);
     const familyMembers = [...new Set([name, ...additionalFamilyMembers])];
-    const visitor = { id: `v-${Date.now()}`, name, familyName: String(data.get('familyName') || '').trim(), familyMembers, arrivalType: String(data.get('arrivalType') || 'Sozinho'), announced: false, phone: String(data.get('phone') || '').trim(), date: String(data.get('date') || TODAY), service: String(data.get('service') || 'Culto'), neighborhood: String(data.get('neighborhood') || '').trim(), invitedBy: String(data.get('invitedBy') || '').trim(), status: 'Novo', responsible: 'Recepção', notes: String(data.get('notes') || '').trim(), consent: true };
-    state.visitors.unshift(visitor);
-    state.metrics.visits += 1;
-    state.activity.unshift({ type: 'visitor', name: visitor.familyName || visitor.name, text: familyMembers.length > 1 ? `foi cadastrada com ${familyMembers.length} pessoas da família.` : 'foi cadastrada como nova visitante.', time: 'Agora', initials: initials(visitor.familyName || visitor.name), tone: 'copper' });
-    saveState(); closeModal(); render(); showToast(`Visitante ${visitor.name} cadastrado. O pastor foi avisado.`);
+    try {
+      await apiRequest('/api/church/visitors', { method: 'POST', body: {
+        name,
+        familyName: String(data.get('familyName') || '').trim(),
+        familyMembers,
+        arrivalType: String(data.get('arrivalType') || 'Sozinho'),
+        phone: String(data.get('phone') || '').trim(),
+        visitDate: String(data.get('date') || TODAY),
+        service: String(data.get('service') || 'Culto de Celebração'),
+        invitedBy: String(data.get('invitedBy') || '').trim(),
+        notes: String(data.get('notes') || '').trim()
+      }});
+      await loadRemoteChurchState(state.currentUser);
+      closeModal();
+      render();
+      showToast(`Visitante ${name} cadastrado no banco de produção.`, 'success');
+    } catch (error) {
+      showToast(`Não foi possível salvar o visitante: ${error.message}`, 'error');
+    }
   } else if (formType === 'announcement') {
     const title = String(data.get('title') || '').trim();
     const body = String(data.get('body') || '').trim();
@@ -837,8 +984,9 @@ function handleSubmit(event) {
     church.initials = initials(church.name);
     if (pendingLogoImage !== null) church.logoImage = pendingLogoImage;
     pendingLogoImage = null;
-    saveState('Identidade e telefone da igreja atualizados');
-    render(); showToast('Nome, telefone e identidade visual da igreja atualizados. Backup automático realizado.');
+    apiRequest('/api/church/settings', { method: 'PUT', body: { name: church.name, city: church.city, phone: church.phone, pastors: church.pastors, description: church.description, logoUrl: church.logoImage || '' } })
+      .then(() => { saveState('Identidade e telefone da igreja atualizados'); render(); showToast('Nome, telefone e identidade visual da igreja atualizados no banco.'); })
+      .catch(error => showToast(`Não foi possível salvar a identidade: ${error.message}`, 'error'));
   }
 }
 
@@ -1071,7 +1219,7 @@ function handleAction(actionEl) {
     case 'go-agenda': closeModal(); setView('agenda'); break;
     case 'go-leaders': closeModal(); setView('leaders'); break;
     case 'switch-church': switchChurch(actionEl.dataset.id); break;
-    case 'logout': showToast('A sessão de demonstração continua ativa.'); break;
+    case 'logout': logoutChurch(); break;
     default: break;
   }
 }
@@ -1135,13 +1283,14 @@ function init() {
   $('#churchSwitcher')?.addEventListener('click', () => openModal('churches'));
   $('#notificationBtn')?.addEventListener('click', () => openModal('notifications'));
   $('#searchTrigger')?.addEventListener('click', () => openModal('search'));
-  $('#logoutBtn')?.addEventListener('click', () => showToast('A sessão de demonstração continua ativa.'));
+  $('#logoutBtn')?.addEventListener('click', logoutChurch);
   document.addEventListener('keydown', event => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openModal('search'); }
     if ((event.key === 'Enter' || event.key === ' ') && document.activeElement?.matches('[data-action="open-metric"]')) { event.preventDefault(); document.activeElement.click(); }
     if (event.key === 'Escape') closeModal();
   });
   if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js').catch(() => {}));
+  bootstrapChurchAuth();
 }
 
 // Modal de troca de organização, mantido separado para não misturar com o cadastro de uma nova igreja.

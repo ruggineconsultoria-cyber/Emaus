@@ -1,9 +1,11 @@
 const STATE_KEY = 'batesda-platform-state-v1';
 const ADMIN_SESSION_KEY = 'emaus-admin-session';
 const ADMIN_BACKUP_KEY = 'emaus-admin-backups-v1';
+const API_BASE = String(window.EMAUS_API_URL || '').replace(/\/$/, '');
 const ADMIN_EMAIL = 'admin@emaus.com.br';
-const ADMIN_PASSWORD = 'Emaus@123';
-const TODAY = '2026-09-06';
+const ADMIN_TOKEN_KEY = 'emaus-admin-token';
+const ADMIN_USER_KEY = 'emaus-admin-user';
+const TODAY = new Date().toISOString().slice(0, 10);
 
 const DEFAULT_PLANS = [
   { id: 'essencial', name: 'Essencial', price: 49.90, members: 100, users: 5, description: 'Para igrejas que estão começando a organizar o cuidado.', features: ['Até 100 pessoas ativas', 'Acolhimento, visitantes e famílias', 'Agenda e relatórios essenciais', 'Até 5 acessos administrativos', 'Todos os recursos incluídos'] },
@@ -39,6 +41,84 @@ const DEFAULT_FINANCE = {
 let currentView = 'overview';
 let addChurchOpen = false;
 let state = loadState();
+let remoteStateLoaded = false;
+
+async function apiRequest(path, options = {}) {
+  if (!API_BASE) throw new Error('A URL da API da Emaús não foi configurada.');
+  const token = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers, body: options.body && typeof options.body !== 'string' ? JSON.stringify(options.body) : options.body });
+  let payload = null;
+  try { payload = await response.json(); } catch (error) { payload = {}; }
+  if (!response.ok) {
+    if (response.status === 401) sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    throw new Error(payload.error || `A API respondeu com HTTP ${response.status}.`);
+  }
+  return payload;
+}
+
+function mapPlanFromApi(plan) {
+  return {
+    id: plan.id,
+    name: plan.name,
+    price: Number(plan.price ?? Number(plan.price_cents || 0) / 100),
+    members: Number(plan.memberLimit ?? plan.member_limit ?? 0),
+    users: Number(plan.userLimit ?? plan.user_limit ?? 0),
+    description: plan.description || '',
+    features: Array.isArray(plan.features) ? plan.features : []
+  };
+}
+
+function mapChurchFromApi(church) {
+  const status = church.status === 'blocked' ? 'Bloqueada' : church.status === 'trial' ? 'Em teste' : 'Ativa';
+  return normalizeChurch({
+    id: church.id,
+    name: church.name,
+    city: church.city,
+    initials: initials(church.name),
+    logoSymbol: initials(church.name).slice(0, 2),
+    logoImage: String(church.slug || '').toLowerCase() === 'bethesda' ? 'bethesda-logo.png' : '',
+    plan: church.plan_id || 'essencial',
+    status,
+    memberCount: Number(church.member_count || 0),
+    monthlyValue: Number(church.monthly_price_cents || 0) / 100,
+    memberLimit: Number(church.member_limit || 0),
+    billingStatus: status === 'Em teste' ? 'Teste grátis' : 'Em dia',
+    nextDue: church.trial_ends_at ? new Date(church.trial_ends_at).toLocaleDateString('pt-BR') : '—',
+    founderPriceFreeze: Boolean(church.founder_price_freeze),
+    founderPlanPrice: church.founder_plan_price_cents ? Number(church.founder_plan_price_cents) / 100 : null,
+    apiStatus: church.status,
+    slug: church.slug
+  });
+}
+
+async function loadRemoteState() {
+  const [churchPayload, plansPayload, financePayload] = await Promise.all([
+    apiRequest('/api/admin/churches'),
+    apiRequest('/api/admin/plans'),
+    apiRequest('/api/admin/finance')
+  ]);
+  const plans = (plansPayload.plans || []).map(mapPlanFromApi);
+  state.platformPricingVersion = 3;
+  state.platformPlans = plans.length ? plans : clone(DEFAULT_PLANS);
+  state.churches = (churchPayload.churches || []).map(mapChurchFromApi);
+  state.activeChurchId = state.churches[0]?.id || null;
+  const transactions = (financePayload.expenses || []).map(item => ({
+    id: item.id,
+    description: item.description,
+    category: item.category,
+    amount: Number(item.amount ?? Number(item.amount_cents || 0) / 100),
+    date: item.expense_date ? new Date(`${item.expense_date}T12:00:00`).toLocaleDateString('pt-BR') : '—'
+  }));
+  const revenue = activeChurches().reduce((total, church) => total + Number(church.monthlyValue || 0), 0);
+  const months = clone(DEFAULT_FINANCE.months).map(month => ({ ...month, income: 0, expense: 0 }));
+  if (months.length) months[months.length - 1].income = revenue;
+  state.platformFinance = { months, transactions };
+  state.platformPolicy = { ...DEFAULT_POLICY, founderUsed: state.churches.filter(church => church.founderPriceFreeze).length };
+  remoteStateLoaded = true;
+  saveState('Dados carregados da API de produção');
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -143,7 +223,7 @@ function toast(message) {
 }
 
 function isLoggedIn() {
-  return sessionStorage.getItem(ADMIN_SESSION_KEY) === 'authenticated';
+  return Boolean(sessionStorage.getItem(ADMIN_TOKEN_KEY));
 }
 
 function showLogin() {
@@ -259,64 +339,72 @@ function setView(view) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function toggleChurch(id) {
+async function toggleChurch(id) {
   const church = state.churches.find(item => item.id === id);
   if (!church) return;
   const willBlock = church.status !== 'Bloqueada';
   const question = willBlock ? `Bloquear o acesso da ${church.name}?` : `Liberar novamente o acesso da ${church.name}?`;
   if (!window.confirm(question)) return;
-  church.status = willBlock ? 'Bloqueada' : 'Ativa';
-  saveState(willBlock ? `Igreja ${church.name} bloqueada` : `Igreja ${church.name} liberada`);
-  render();
-  toast(willBlock ? `${church.name} foi bloqueada.` : `${church.name} foi liberada.`);
+  try {
+    await apiRequest(`/api/admin/churches/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: { status: willBlock ? 'blocked' : 'active' } });
+    await loadRemoteState();
+    render();
+    toast(willBlock ? `${church.name} foi bloqueada.` : `${church.name} foi liberada.`);
+  } catch (error) {
+    toast(`Não foi possível atualizar a igreja: ${error.message}`);
+  }
 }
 
-function savePlans(form) {
+async function savePlans(form) {
   const data = new FormData(form);
-  state.platformPlans = state.platformPlans.map(plan => ({
-    ...plan,
+  const plans = state.platformPlans.map(plan => ({
+    id: plan.id,
     name: String(data.get(`name_${plan.id}`) || plan.name).trim(),
     price: numeric(data.get(`price_${plan.id}`)),
-    members: numeric(data.get(`members_${plan.id}`)),
-    users: numeric(data.get(`users_${plan.id}`))
+    memberLimit: numeric(data.get(`members_${plan.id}`)),
+    userLimit: numeric(data.get(`users_${plan.id}`)),
+    description: plan.description,
+    features: plan.features
   }));
-  state.churches = state.churches.map(church => {
-    const plan = getPlan(normalizePlan(church.plan));
-    return { ...church, monthlyValue: plan.price, memberLimit: plan.members };
-  });
-  saveState('Tabela de preços atualizada');
-  render();
-  toast('Tabela de preços salva e backup automático realizado.');
+  try {
+    await apiRequest('/api/admin/plans', { method: 'PUT', body: { plans } });
+    await loadRemoteState();
+    render();
+    toast('Tabela de preços salva no banco de produção.');
+  } catch (error) {
+    toast(`Não foi possível salvar os planos: ${error.message}`);
+  }
 }
 
-function saveExpense(form) {
+async function saveExpense(form) {
   const data = new FormData(form);
   const description = String(data.get('description') || '').trim();
   const amount = numeric(data.get('amount'));
   if (!description || amount <= 0) return toast('Informe a descrição e um valor válido.');
-  state.platformFinance.transactions.unshift({ id: `expense-${Date.now()}`, description, category: String(data.get('category') || 'Outro'), amount, date: '06 set 2026' });
-  const currentMonth = state.platformFinance.months[state.platformFinance.months.length - 1];
-  if (currentMonth) currentMonth.expense = Number(currentMonth.expense || 0) + amount;
-  saveState(`Gasto registrado: ${description}`);
-  render();
-  toast('Gasto salvo e backup automático realizado.');
+  try {
+    await apiRequest('/api/admin/expenses', { method: 'POST', body: { description, category: String(data.get('category') || 'Outro'), amount } });
+    await loadRemoteState();
+    render();
+    toast('Gasto salvo no banco de produção.');
+  } catch (error) {
+    toast(`Não foi possível salvar o gasto: ${error.message}`);
+  }
 }
 
-function addChurch(form) {
+async function addChurch(form) {
   const data = new FormData(form);
   const name = String(data.get('name') || '').trim();
   if (!name) return toast('Informe o nome da igreja.');
   const planId = String(data.get('plan') || 'essencial');
-  const plan = getPlan(planId);
-  const policy = state.platformPolicy || DEFAULT_POLICY;
-  const founderPriceFreeze = Number(policy.founderUsed || 0) < Number(policy.founderChurches || 40);
-  if (founderPriceFreeze) policy.founderUsed = Number(policy.founderUsed || 0) + 1;
-  const church = normalizeChurch({ id: `church-${Date.now()}`, name, city: String(data.get('city') || 'Brasil').trim(), initials: initials(name), logoSymbol: initials(name).slice(0, 2), logoImage: '', plan: plan.id, status: 'Ativa', memberLimit: plan.members, memberCount: 0, monthlyValue: plan.price, billingStatus: 'Em dia', nextDue: '10 set 2026', adminName: String(data.get('admin') || '').trim(), founderPriceFreeze, founderPlanPrice: founderPriceFreeze ? plan.price : null });
-  state.churches.push(church);
-  saveState(`Nova igreja cadastrada: ${name}`);
-  addChurchOpen = false;
-  render();
-  toast(`${name} foi cadastrada e liberada.`);
+  try {
+    await apiRequest('/api/admin/churches', { method: 'POST', body: { name, city: String(data.get('city') || 'Brasil').trim(), planId, pastors: String(data.get('admin') || '').trim() } });
+    await loadRemoteState();
+    addChurchOpen = false;
+    render();
+    toast(`${name} foi cadastrada no banco de produção.`);
+  } catch (error) {
+    toast(`Não foi possível cadastrar a igreja: ${error.message}`);
+  }
 }
 
 function handleClick(event) {
@@ -332,7 +420,7 @@ function handleClick(event) {
   if (type === 'focus-expense') { document.querySelector('#expenseDescription')?.focus(); return; }
 }
 
-function handleSubmit(event) {
+async function handleSubmit(event) {
   const form = event.target.closest('[data-admin-form]');
   if (!form) return;
   event.preventDefault();
@@ -342,31 +430,60 @@ function handleSubmit(event) {
     const email = String(data.get('email') || '').trim().toLowerCase();
     const password = String(data.get('password') || '');
     const error = document.querySelector('#adminLoginError');
-    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
-      error.textContent = 'Login ou senha administrativa incorretos.';
+    const button = form.querySelector('button[type="submit"]');
+    if (!email || !password) {
+      error.textContent = 'Informe o e-mail e a senha.';
       error.classList.remove('hidden');
       return;
     }
-    error.classList.add('hidden');
-    sessionStorage.setItem(ADMIN_SESSION_KEY, 'authenticated');
-    showApp();
+    button.disabled = true;
+    button.textContent = 'Conectando...';
+    try {
+      const payload = await apiRequest('/api/auth/login', { method: 'POST', body: { email, password } });
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, payload.token);
+      sessionStorage.setItem(ADMIN_USER_KEY, JSON.stringify(payload.user || {}));
+      await loadRemoteState();
+      error.classList.add('hidden');
+      showApp();
+    } catch (loginError) {
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+      sessionStorage.removeItem(ADMIN_USER_KEY);
+      error.textContent = loginError.message || 'Não foi possível conectar à API da Emaús.';
+      error.classList.remove('hidden');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Entrar no administrador';
+    }
     return;
   }
-  if (type === 'church') addChurch(form);
-  if (type === 'plans') savePlans(form);
-  if (type === 'expense') saveExpense(form);
+  if (type === 'church') await addChurch(form);
+  if (type === 'plans') await savePlans(form);
+  if (type === 'expense') await saveExpense(form);
 }
 
-function init() {
+async function init() {
   document.querySelector('#adminEmail').value = ADMIN_EMAIL;
   document.querySelector('#adminLoginForm').dataset.adminForm = 'login';
   document.addEventListener('click', handleClick);
   document.addEventListener('submit', handleSubmit);
   document.querySelector('#adminLogout').addEventListener('click', () => {
     sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    sessionStorage.removeItem(ADMIN_USER_KEY);
     showLogin();
   });
-  if (isLoggedIn()) showApp(); else showLogin();
+  if (isLoggedIn()) {
+    try {
+      await loadRemoteState();
+      showApp();
+    } catch (error) {
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+      sessionStorage.removeItem(ADMIN_USER_KEY);
+      showLogin();
+    }
+  } else {
+    showLogin();
+  }
 }
 
 init();
