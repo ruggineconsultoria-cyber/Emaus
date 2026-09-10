@@ -191,6 +191,18 @@ app.post('/api/admin/expenses', auth(['platform_admin']), async (req, res) => {
   res.status(201).json({ expense: result.rows[0] });
 });
 
+app.get('/api/public/church', async (req, res) => {
+  const requestedSlug = String(req.query.slug || 'bethesda').trim().toLowerCase();
+  const result = await query("SELECT id, name, slug, city, phone, pastors, description, logo_url, public_settings, status FROM churches WHERE slug = $1 AND status IN ('active', 'trial')", [requestedSlug]);
+  const church = result.rows[0];
+  if (!church) return res.status(404).json({ error: 'Igreja não encontrada.' });
+  const publicSettings = church.public_settings || {};
+  if (publicSettings.visible === false) return res.status(404).json({ error: 'A página pública desta igreja está temporariamente indisponível.' });
+  const events = await query(`SELECT id, title, event_date, event_time, location, event_type, audience, recurrence_rule, recurrence_id
+    FROM church_events WHERE church_id = $1 AND event_date >= CURRENT_DATE ORDER BY event_date ASC, event_time ASC LIMIT 120`, [church.id]);
+  res.json({ church: { ...church, publicSettings }, events: events.rows });
+});
+
 app.get('/api/church/settings', auth(['church_admin', 'reception']), requireChurch, async (req, res) => {
   const result = await query('SELECT * FROM churches WHERE id = $1', [req.churchId]);
   if (!result.rows[0]) return res.status(404).json({ error: 'Igreja não encontrada.' });
@@ -198,8 +210,9 @@ app.get('/api/church/settings', auth(['church_admin', 'reception']), requireChur
 });
 
 app.put('/api/church/settings', auth(['church_admin']), requireChurch, async (req, res) => {
-  const result = await query(`UPDATE churches SET name = COALESCE(NULLIF($1, ''), name), city = COALESCE(NULLIF($2, ''), city), phone = $3, pastors = $4, description = $5, logo_url = $6, updated_at = NOW() WHERE id = $7 RETURNING *`, [req.body.name || '', req.body.city || '', req.body.phone || '', req.body.pastors || '', req.body.description || '', req.body.logoUrl || '', req.churchId]);
-  await audit(req.user, 'church_settings_updated', { fields: ['name', 'city', 'phone', 'pastors', 'description', 'logoUrl'] }, req.churchId);
+  const publicSettings = req.body.publicSettings && typeof req.body.publicSettings === 'object' ? req.body.publicSettings : {};
+  const result = await query(`UPDATE churches SET name = COALESCE(NULLIF($1, ''), name), city = COALESCE(NULLIF($2, ''), city), phone = $3, pastors = $4, description = $5, logo_url = $6, public_settings = $7, updated_at = NOW() WHERE id = $8 RETURNING *`, [req.body.name || '', req.body.city || '', req.body.phone || '', req.body.pastors || '', req.body.description || '', req.body.logoUrl || '', JSON.stringify(publicSettings), req.churchId]);
+  await audit(req.user, 'church_settings_updated', { fields: ['name', 'city', 'phone', 'pastors', 'description', 'logoUrl', 'publicSettings'] }, req.churchId);
   res.json({ church: result.rows[0] });
 });
 
@@ -218,6 +231,97 @@ app.post('/api/church/visitors', auth(['church_admin', 'reception']), requireChu
   res.status(201).json({ visitor: result.rows[0] });
 });
 
+app.get('/api/church/members', auth(['church_admin', 'reception']), requireChurch, async (req, res) => {
+  const result = await query('SELECT * FROM members WHERE church_id = $1 ORDER BY name ASC LIMIT 2000', [req.churchId]);
+  res.json({ members: result.rows });
+});
+
+app.post('/api/church/members', auth(['church_admin']), requireChurch, async (req, res) => {
+  const name = String(req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'Nome do membro é obrigatório.' });
+  const result = await query(`INSERT INTO members (church_id, name, email, phone, ministry, status, joined_at)
+    VALUES ($1, $2, COALESCE($3, ''), COALESCE($4, ''), COALESCE($5, ''), $6, $7) RETURNING *`, [req.churchId, name, req.body.email || '', req.body.phone || '', req.body.ministry || '', req.body.status === 'inactive' ? 'inactive' : 'active', req.body.joinedAt || null]);
+  await query('UPDATE churches SET member_count = (SELECT COUNT(*) FROM members WHERE church_id = $1), updated_at = NOW() WHERE id = $1', [req.churchId]);
+  await audit(req.user, 'member_created', { memberId: result.rows[0].id }, req.churchId);
+  res.status(201).json({ member: result.rows[0] });
+});
+
+app.patch('/api/church/members/:memberId', auth(['church_admin']), requireChurch, async (req, res) => {
+  const result = await query(`UPDATE members SET name = COALESCE(NULLIF($1, ''), name), email = COALESCE($2, email), phone = COALESCE($3, phone), ministry = COALESCE($4, ministry), status = COALESCE($5, status), joined_at = COALESCE($6, joined_at), updated_at = NOW()
+    WHERE id = $7 AND church_id = $8 RETURNING *`, [req.body.name || '', req.body.email, req.body.phone, req.body.ministry, req.body.status, req.body.joinedAt || null, req.params.memberId, req.churchId]);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Membro não encontrado.' });
+  res.json({ member: result.rows[0] });
+});
+
+app.delete('/api/church/members/:memberId', auth(['church_admin']), requireChurch, async (req, res) => {
+  const result = await query('DELETE FROM members WHERE id = $1 AND church_id = $2 RETURNING id', [req.params.memberId, req.churchId]);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Membro não encontrado.' });
+  await query('UPDATE churches SET member_count = (SELECT COUNT(*) FROM members WHERE church_id = $1), updated_at = NOW() WHERE id = $1', [req.churchId]);
+  await audit(req.user, 'member_deleted', { memberId: req.params.memberId }, req.churchId);
+  res.json({ ok: true });
+});
+
+app.get('/api/church/events', auth(['church_admin', 'reception']), requireChurch, async (req, res) => {
+  const result = await query('SELECT * FROM church_events WHERE church_id = $1 ORDER BY event_date ASC, event_time ASC LIMIT 1000', [req.churchId]);
+  res.json({ events: result.rows });
+});
+
+app.post('/api/church/events/bulk', auth(['church_admin']), requireChurch, async (req, res) => {
+  const events = Array.isArray(req.body.events) ? req.body.events : [];
+  if (!events.length) return res.status(400).json({ error: 'Inclua pelo menos um evento.' });
+  const inserted = [];
+  for (const item of events.slice(0, 500)) {
+    if (!item.title || !item.date) continue;
+    const result = await query(`INSERT INTO church_events (church_id, title, event_date, event_time, location, event_type, audience, recurrence_rule, recurrence_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`, [req.churchId, String(item.title).trim(), item.date, item.time || '19:00', item.location || 'Templo principal', item.type || 'Outro', item.audience || 'Toda a igreja', JSON.stringify(item.recurrenceRule || {}), item.recurrenceId || '']);
+    inserted.push(result.rows[0]);
+  }
+  await audit(req.user, 'events_created', { count: inserted.length }, req.churchId);
+  res.status(201).json({ events: inserted });
+});
+
+app.patch('/api/church/events/:eventId', auth(['church_admin']), requireChurch, async (req, res) => {
+  const result = await query(`UPDATE church_events SET title = COALESCE(NULLIF($1, ''), title), event_date = COALESCE($2, event_date), event_time = COALESCE($3, event_time), location = COALESCE($4, location), event_type = COALESCE($5, event_type), audience = COALESCE($6, audience), updated_at = NOW()
+    WHERE id = $7 AND church_id = $8 RETURNING *`, [req.body.title || '', req.body.date || null, req.body.time, req.body.location, req.body.type, req.body.audience, req.params.eventId, req.churchId]);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Evento não encontrado.' });
+  res.json({ event: result.rows[0] });
+});
+
+app.delete('/api/church/events/:eventId', auth(['church_admin']), requireChurch, async (req, res) => {
+  const result = await query('DELETE FROM church_events WHERE id = $1 AND church_id = $2 RETURNING id', [req.params.eventId, req.churchId]);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Evento não encontrado.' });
+  await audit(req.user, 'event_deleted', { eventId: req.params.eventId }, req.churchId);
+  res.json({ ok: true });
+});
+
+app.get('/api/church/leaders', auth(['church_admin', 'reception']), requireChurch, async (req, res) => {
+  const result = await query("SELECT * FROM leaders WHERE church_id = $1 AND status = 'active' ORDER BY name ASC", [req.churchId]);
+  res.json({ leaders: result.rows });
+});
+
+app.post('/api/church/leaders', auth(['church_admin']), requireChurch, async (req, res) => {
+  const name = String(req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'Nome da liderança é obrigatório.' });
+  const result = await query(`INSERT INTO leaders (church_id, name, role, phone, group_name) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [req.churchId, name, req.body.role || 'Líder', req.body.phone || '', req.body.group || '']);
+  await audit(req.user, 'leader_created', { leaderId: result.rows[0].id }, req.churchId);
+  res.status(201).json({ leader: result.rows[0] });
+});
+
+app.patch('/api/church/leaders/:leaderId', auth(['church_admin']), requireChurch, async (req, res) => {
+  const result = await query(`UPDATE leaders SET name = COALESCE(NULLIF($1, ''), name), role = COALESCE(NULLIF($2, ''), role), phone = COALESCE($3, phone), group_name = COALESCE($4, group_name), updated_at = NOW()
+    WHERE id = $5 AND church_id = $6 RETURNING *`, [req.body.name || '', req.body.role || '', req.body.phone, req.body.group, req.params.leaderId, req.churchId]);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Liderança não encontrada.' });
+  await audit(req.user, 'leader_updated', { leaderId: req.params.leaderId }, req.churchId);
+  res.json({ leader: result.rows[0] });
+});
+
+app.delete('/api/church/leaders/:leaderId', auth(['church_admin']), requireChurch, async (req, res) => {
+  const result = await query('UPDATE leaders SET status = \'inactive\', updated_at = NOW() WHERE id = $1 AND church_id = $2 RETURNING id', [req.params.leaderId, req.churchId]);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Liderança não encontrada.' });
+  await audit(req.user, 'leader_deleted', { leaderId: req.params.leaderId }, req.churchId);
+  res.json({ ok: true });
+});
+
 app.get('/api/audit', auth(['platform_admin']), async (req, res) => {
   const result = await query('SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 200');
   res.json({ events: result.rows });
@@ -225,6 +329,10 @@ app.get('/api/audit', auth(['platform_admin']), async (req, res) => {
 
 async function ensureColumnCompatibility() {
   await query("ALTER TABLE churches ADD COLUMN IF NOT EXISTS founder_price_freeze BOOLEAN NOT NULL DEFAULT FALSE");
+  await query("ALTER TABLE churches ADD COLUMN IF NOT EXISTS public_settings JSONB NOT NULL DEFAULT '{}'::jsonb");
+  await query("CREATE INDEX IF NOT EXISTS idx_members_church_name ON members(church_id, name)");
+  await query("CREATE INDEX IF NOT EXISTS idx_events_church_date ON church_events(church_id, event_date, event_time)");
+  await query("CREATE INDEX IF NOT EXISTS idx_leaders_church ON leaders(church_id, status)");
 }
 
 async function seed() {
@@ -243,6 +351,29 @@ async function seed() {
   if (ADMIN_PASSWORD) await seedUser(ADMIN_EMAIL, 'Administrador da plataforma', ADMIN_PASSWORD, 'platform_admin', null, []);
   if (PASTOR_PASSWORD) await seedUser(PASTOR_EMAIL, 'Evandro e Simone', PASTOR_PASSWORD, 'church_admin', church.id, ['church_settings', 'acolhimento']);
   if (RECEPTION_PASSWORD) await seedUser(RECEPTION_EMAIL, 'Mariana Alves', RECEPTION_PASSWORD, 'reception', church.id, ['acolhimento']);
+  const leaderCount = Number((await query('SELECT COUNT(*)::int AS total FROM leaders WHERE church_id = $1', [church.id])).rows[0].total || 0);
+  if (!leaderCount) {
+    const initialLeaders = [
+      ['Evandro', 'Pastor titular', '(21) 99921-4421', 'Administração'],
+      ['Simone', 'Pastora e cuidado', '(21) 99812-7310', 'Acolhimento'],
+      ['João Pedro', 'Líder de obreiros', '(21) 99634-1822', 'Obreiros'],
+      ['Mariana Alves', 'Líder de recepção', '(21) 99704-2118', 'Recepção'],
+      ['Camila Martins', 'Líder de célula', '(21) 99572-3188', 'Célula Centro'],
+      ['Daniel Souza', 'Ministério de louvor', '(21) 99280-4471', 'Louvor']
+    ];
+    for (const leader of initialLeaders) await query('INSERT INTO leaders (church_id, name, role, phone, group_name) VALUES ($1, $2, $3, $4, $5)', [church.id, ...leader]);
+  }
+  const eventCount = Number((await query('SELECT COUNT(*)::int AS total FROM church_events WHERE church_id = $1', [church.id])).rows[0].total || 0);
+  if (!eventCount) {
+    const initialEvents = [
+      ['Culto de Celebração', 3, '19:00', 'Templo principal', 'Culto', 'Toda a igreja'],
+      ['Encontro de Mulheres', 9, '18:30', 'Salão social', 'Encontro', 'Ministério de Mulheres'],
+      ['Culto de Ensino', 13, '19:30', 'Templo principal', 'Culto', 'Toda a igreja'],
+      ['Café com líderes', 16, '08:30', 'Sala de reuniões', 'Liderança', 'Lideranças']
+    ];
+    for (const item of initialEvents) await query(`INSERT INTO church_events (church_id, title, event_date, event_time, location, event_type, audience)
+      VALUES ($1, $2, CURRENT_DATE + ($3 || ' days')::interval, $4, $5, $6, $7)`, [church.id, item[0], item[1], item[2], item[3], item[4], item[5]]);
+  }
 }
 
 async function seedUser(email, name, password, role, churchId, permissions) {

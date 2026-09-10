@@ -1,7 +1,7 @@
 const ICON = (name, className = 'icon') => `<svg class="${className}"><use href="#icon-${name}"></use></svg>`;
 const PLATFORM_NAME = 'Emaús';
 const STORAGE_KEY = 'batesda-platform-state-v1';
-const TODAY = '2026-09-04';
+const TODAY = new Date().toISOString().slice(0, 10);
 const DEFAULT_APPEARANCE = { theme: 'light', font: 'editorial', primary: '#d7a84b', accent: '#b86f45' };
 const API_BASE = String(window.EMAUS_API_URL || '').replace(/\/$/, '');
 const CHURCH_TOKEN_KEY = 'emaus-church-token';
@@ -17,6 +17,9 @@ const defaultState = {
   activeView: 'dashboard',
   activeChurchId: 'batesda',
   settingsSection: 'organization',
+  calendarMonth: TODAY.slice(0, 7),
+  growthGoals: { visitors: 50, returns: 25, members: 300 },
+  members: [],
   currentUser: { name: 'Evandro & Simone', role: 'Pastor da igreja', roleKey: 'church_admin' },
   metrics: {
     visits: 38,
@@ -25,7 +28,7 @@ const defaultState = {
     announcements: 12
   },
   churches: [
-    { id: 'batesda', name: 'Bethesda', city: 'Itaboraí • RJ', phone: '(21) 00000-0000', pastors: 'Evandro e Simone', description: 'Um lugar para pertencer, crescer e viver a fé em comunidade.', initials: 'BE', logoSymbol: 'B', logoImage: 'bethesda-logo.png', appearance: { ...DEFAULT_APPEARANCE }, members: 246, status: 'Ativa', plan: 'Essencial' }
+    { id: 'batesda', name: 'Bethesda', slug: 'bethesda', city: 'Itaboraí • RJ', phone: '(21) 00000-0000', pastors: 'Evandro e Simone', description: 'Um lugar para pertencer, crescer e viver a fé em comunidade.', initials: 'BE', logoSymbol: 'B', logoImage: 'bethesda-logo.png', appearance: { ...DEFAULT_APPEARANCE }, publicSettings: { visible: true, headline: 'Um lugar para pertencer, crescer e viver a fé em comunidade.', address: 'Itaboraí • RJ', hours: 'Domingos às 19h', instagram: '', facebook: '', youtube: '', cta: 'Venha nos visitar' }, members: 246, status: 'Ativa', plan: 'Essencial' }
   ],
   visitors: [
     { id: 'v-1', name: 'Ana Clara Nogueira', familyName: 'Família Nogueira', familyMembers: ['Ana Clara Nogueira', 'Paulo Nogueira', 'Lara Nogueira'], arrivalType: 'Família', phone: '(21) 99842-1874', date: '2026-09-02', service: 'Culto de Celebração', neighborhood: 'Centro', invitedBy: 'Mariana Alves', status: 'Novo', responsible: 'Recepção', notes: 'Veio com a família.', consent: true },
@@ -94,7 +97,7 @@ function mapApiVisitor(visitor) {
     arrivalType: visitor.arrival_type || 'Sozinho',
     announced: Boolean(visitor.announced),
     phone: visitor.phone || '',
-    date: visitor.visit_date || TODAY,
+    date: String(visitor.visit_date || TODAY).slice(0, 10),
     service: visitor.service || 'Culto de Celebração',
     neighborhood: '',
     invitedBy: visitor.invited_by || '',
@@ -106,28 +109,60 @@ function mapApiVisitor(visitor) {
   };
 }
 
+function mapApiEvent(event) {
+  return {
+    id: event.id,
+    title: event.title,
+    date: String(event.event_date || event.date || TODAY).slice(0, 10),
+    time: event.event_time || event.time || '19:00',
+    location: event.location || 'Templo principal',
+    type: event.event_type || event.type || 'Outro',
+    audience: event.audience || 'Toda a igreja',
+    recurrenceRule: event.recurrence_rule || event.recurrenceRule || {},
+    recurrenceId: event.recurrence_id || event.recurrenceId || ''
+  };
+}
+function mapApiMember(member) {
+  return { id: member.id, name: member.name, email: member.email || '', phone: member.phone || '', ministry: member.ministry || '', status: member.status || 'active', joinedAt: member.joined_at || '' };
+}
+function mapApiLeader(leader) {
+  return { id: leader.id, name: leader.name, role: leader.role || 'Líder', phone: leader.phone || '', group: leader.group_name || leader.group || '', initials: initials(leader.name), tone: 'dark', status: leader.status || 'active' };
+}
+
 async function loadRemoteChurchState(user) {
-  const [settingsPayload, visitorsPayload] = await Promise.all([apiRequest('/api/church/settings'), apiRequest('/api/church/visitors')]);
+  const endpoints = ['/api/church/settings', '/api/church/visitors', '/api/church/events', '/api/church/members', '/api/church/leaders'];
+  const results = await Promise.all(endpoints.map(endpoint => apiRequest(endpoint).then(payload => ({ ok: true, payload })).catch(error => ({ ok: false, error }))));
+  const settingsPayload = results[0].payload || {};
+  const visitorsPayload = results[1].payload || {};
+  const eventsPayload = results[2].payload || {};
+  const membersPayload = results[3].payload || {};
+  const leadersPayload = results[4].payload || {};
   const church = settingsPayload.church;
   if (church) {
     state.activeChurchId = church.id;
     state.churches = [{
       id: church.id,
       name: church.name,
+      slug: church.slug || slugify(church.name),
       city: church.city,
       phone: church.phone || '',
       pastors: church.pastors || '',
       description: church.description || '',
       initials: initials(church.name),
       logoSymbol: initials(church.name).slice(0, 2),
-      logoImage: String(church.slug || '').toLowerCase() === 'bethesda' ? 'bethesda-logo.png' : '',
-      appearance: { ...DEFAULT_APPEARANCE },
+      logoImage: church.logo_url || (String(church.slug || '').toLowerCase() === 'bethesda' ? 'bethesda-logo.png' : ''),
+      appearance: { ...DEFAULT_APPEARANCE, ...(church.public_settings?.appearance || {}) },
+      publicSettings: { visible: true, ...(church.public_settings || {}) },
       members: Number(church.member_count || 0),
       status: church.status === 'blocked' ? 'Bloqueada' : 'Ativa',
       plan: church.plan_id || 'cuidado'
     }];
   }
-  state.visitors = (visitorsPayload.visitors || []).map(mapApiVisitor);
+  if (church?.public_settings?.growthGoals) state.growthGoals = { ...(state.growthGoals || {}), ...church.public_settings.growthGoals };
+  if (results[1].ok) state.visitors = (visitorsPayload.visitors || []).map(mapApiVisitor);
+  if (results[2].ok) state.events = (eventsPayload.events || []).map(mapApiEvent);
+  if (results[3].ok) state.members = (membersPayload.members || []).map(mapApiMember);
+  if (results[4].ok) state.leaders = (leadersPayload.leaders || []).map(mapApiLeader);
   state.metrics = { ...(state.metrics || {}), visits: state.visitors.length, returns: state.visitors.filter(visitor => ['Retornou', 'Integrado'].includes(visitor.status)).length, reach: Number(church?.member_count || 0) };
   state.currentUser = { name: user?.name || 'Pastor', role: 'Pastor da igreja', roleKey: user?.role || 'church_admin', churchId: user?.churchId || state.activeChurchId };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -202,6 +237,7 @@ function logoutChurch() {
 const viewMeta = {
   dashboard: { label: 'Início' },
   acolhimento: { label: 'Acolhimento' },
+  members: { label: 'Membros' },
   visitors: { label: 'Visitantes' },
   pulpit: { label: 'Modo púlpito' },
   communication: { label: 'Comunicação' },
@@ -214,7 +250,7 @@ function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && saved.visitors && saved.events && saved.churches) {
-      const merged = { ...structuredClone(defaultState), ...saved, currentUser: { ...defaultState.currentUser, ...(saved.currentUser || {}) }, metrics: { ...defaultState.metrics, ...(saved.metrics || {}) } };
+      const merged = { ...structuredClone(defaultState), ...saved, currentUser: { ...defaultState.currentUser, ...(saved.currentUser || {}) }, metrics: { ...defaultState.metrics, ...(saved.metrics || {}) }, growthGoals: { ...defaultState.growthGoals, ...(saved.growthGoals || {}) }, members: Array.isArray(saved.members) ? saved.members : [], calendarMonth: saved.calendarMonth || defaultState.calendarMonth };
       merged.visitors = merged.visitors.map(visitor => {
         const defaultVisitor = defaultState.visitors.find(item => item.id === visitor.id);
         return {
@@ -234,6 +270,8 @@ function loadState() {
         phone: church.phone || '(21) 00000-0000',
         pastors: church.pastors || 'Evandro e Simone',
         description: church.description || 'Um lugar para pertencer, crescer e viver a fé em comunidade.',
+        slug: church.slug || slugify(church.name),
+        publicSettings: { visible: true, ...(church.publicSettings || {}) },
         appearance: { ...DEFAULT_APPEARANCE, ...(church.appearance || {}) }
       }));
       merged.receptionUsers = (merged.receptionUsers || []).map((user, index) => ({
@@ -363,7 +401,8 @@ function slugify(value = '') {
 function receptionLink(church = getActiveChurch()) {
   const pathname = window.location?.pathname || '/';
   const basePath = pathname.endsWith('/') ? pathname : pathname.slice(0, pathname.lastIndexOf('/') + 1);
-  return `${window.location.origin}${basePath}recepcao.html`;
+  const slug = church?.slug || slugify(church?.name || 'igreja');
+  return `${window.location.origin}${basePath}recepcao.html?igreja=${encodeURIComponent(slug)}`;
 }
 function churchLogoText(church) {
   return String(church?.logoSymbol || (church?.id === 'batesda' ? 'B' : initials(church?.name || 'B'))).trim().slice(0, 2).toUpperCase() || 'B';
@@ -503,7 +542,7 @@ function sortedEvents() { return [...state.events].sort((a, b) => a.date.localeC
 function escapeCSV(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
 
 function applySettingsSection(section = state.settingsSection || 'organization') {
-  const validSections = ['organization', 'notifications', 'team', 'saas'];
+  const validSections = ['organization', 'public', 'notifications', 'team', 'saas'];
   state.settingsSection = validSections.includes(section) ? section : 'organization';
   $$('.settings-nav button').forEach(button => button.classList.toggle('active', button.dataset.settingsSection === state.settingsSection));
   $$('.settings-panels [data-settings-panel]').forEach(panel => {
@@ -517,7 +556,7 @@ function render() {
   const content = $('#appContent');
   if (!content) return;
   if (state.activeView === 'acolhimento' && !canAccessAcolhimento()) state.activeView = 'dashboard';
-  const renderers = { dashboard: renderDashboard, acolhimento: renderAcolhimento, visitors: renderVisitors, pulpit: renderPulpit, communication: renderCommunication, agenda: renderAgenda, leaders: renderLeaders, settings: renderSettings };
+  const renderers = { dashboard: renderDashboard, acolhimento: renderAcolhimento, members: renderMembers, visitors: renderVisitors, pulpit: renderPulpit, communication: renderCommunication, agenda: renderAgenda, leaders: renderLeaders, settings: renderSettings };
   content.innerHTML = (renderers[state.activeView] || renderDashboard)();
   updateShell();
   if (state.activeView === 'settings') applySettingsSection();
@@ -567,12 +606,13 @@ function renderDashboard() {
   return `
     <section class="page-head">
       <div>
-        <span class="eyebrow">Sexta-feira, 04 de setembro de 2026</span>
+        <span class="eyebrow">${formatDateLong(TODAY)}</span>
         <h1>Bom dia, Evandro & Simone <span class="heading-sparkle">${ICON('sparkle')}</span></h1>
         <p>Uma visão clara para cuidar melhor das pessoas e da sua igreja.</p>
       </div>
       <div class="page-actions">
         <button class="btn btn-secondary" data-view="acolhimento"><span>${ICON('heart')}</span> Acolhimento</button>
+        <button class="btn btn-secondary" data-view="members"><span>${ICON('users')}</span> Membros</button>
         <button class="btn btn-gold" data-action="new-visitor"><span>${ICON('plus')}</span> Novo visitante</button>
       </div>
     </section>
@@ -599,8 +639,9 @@ function renderDashboard() {
     <section class="panel chart-panel growth-panel">
       <div class="panel-header"><div class="panel-heading"><h2>Visão de crescimento</h2><p>Visitantes registrados nas últimas 12 semanas</p></div><div class="chart-legend"><span class="legend-key"><i class="legend-dot"></i> Visitantes</span><span class="legend-key"><i class="legend-dot copper"></i> Retornos</span></div></div>
       <div class="chart-wrap"><div class="chart-y"><span>80</span><span>60</span><span>40</span><span>20</span><span>0</span></div><div class="chart-area"><div class="chart-grid"><span></span><span></span><span></span><span></span><span></span></div><div class="bars">${chartValues.map((value, index) => `<div class="bar-group"><i class="bar copper" style="height:${Math.max(12, value * .55)}%"></i><i class="bar gold" style="height:${value}%"></i></div>`).join('')}</div><div class="x-labels"><span>Jun 14</span><span>Jun 28</span><span>Jul 12</span><span>Jul 26</span><span>Ago 09</span><span>Ago 23</span><span>Set 04</span></div></div></div>
-      <div class="chart-footer"><span>Este mês</span><strong>${state.metrics.visits} visitantes</strong><span class="stat-trend">${ICON('arrow-up-right')} 18,4%</span></div>
+      <div class="chart-footer"><span>Este mês</span><strong>${state.metrics.visits} visitantes</strong><span class="stat-trend">${ICON('arrow-up-right')} 18,4%</span><button class="panel-link" data-action="growth-goals">${ICON('sparkle')} Metas de crescimento</button></div>
     </section>
+    <section class="panel" style="margin-top:20px;"><div class="panel-header"><div class="panel-heading"><h2>Metas de crescimento</h2><p>Acompanhe objetivos simples para a próxima fase da igreja.</p></div><button class="btn btn-secondary" data-action="growth-goals">Editar metas</button></div><div class="split-stat" style="padding:0 22px 22px;"><div><small>Visitantes</small><strong>${esc(state.metrics.visits)} / ${esc(state.growthGoals?.visitors || 0)}</strong></div><div><small>Retornos</small><strong>${esc(state.metrics.returns)} / ${esc(state.growthGoals?.returns || 0)}</strong></div><div><small>Membros</small><strong>${esc(state.members?.length || church.members || 0)} / ${esc(state.growthGoals?.members || 0)}</strong></div></div></section>
   `;
 }
 
@@ -616,6 +657,15 @@ function statCard(label, value, trendOrSubtitle, subtitleOrIcon, icon, tone = 'g
 
 function renderActivityItems() {
   return state.activity.slice(0, 4).map(item => `<li class="activity-item"><div class="activity-avatar ${iconTone(item.tone)}">${esc(item.initials)}</div><div class="activity-content"><p><strong>${esc(item.name)}</strong> ${esc(item.text)}</p><span class="activity-time">${esc(item.time)}</span></div></li>`).join('');
+}
+
+function renderMembers() {
+  const church = getActiveChurch();
+  const members = state.members || [];
+  const total = members.length || Number(church?.members || 0);
+  const active = members.filter(member => member.status !== 'inactive').length || total;
+  const rows = members.length ? members.map(member => `<div class="team-user-row"><div class="avatar avatar-olive">${esc(initials(member.name))}</div><div class="team-user-copy"><strong>${esc(member.name)}</strong><span>${esc(member.ministry || 'Membro')} · ${esc(member.phone || 'Telefone não informado')}</span><small>${member.email ? esc(member.email) : 'E-mail não informado'}</small></div><span class="team-status">${member.status === 'inactive' ? 'Inativo' : 'Ativo'}</span><button class="table-action" data-action="member-detail" data-id="${esc(member.id)}" aria-label="Abrir membro">${ICON('more')}</button></div>`).join('') : `<div class="empty-state"><div class="icon-tile">${ICON('users')}</div><h3>A base de membros está pronta</h3><p>Cadastre os membros da ${esc(church.name)} para começar o acompanhamento.</p><button class="btn btn-gold" data-action="new-member">${ICON('plus')} Cadastrar primeiro membro</button></div>`;
+  return `<section class="page-head"><div><span class="eyebrow">COMUNIDADE</span><h1>Membros</h1><p>Uma base organizada para cuidar das pessoas que fazem parte da ${esc(church.name)}.</p></div><div class="page-actions"><button class="btn btn-secondary" data-action="export-members">${ICON('download')} Exportar membros</button><button class="btn btn-gold" data-action="new-member">${ICON('plus')} Novo membro</button></div></section><div class="stat-grid"><article class="stat-card"><div class="stat-top"><span class="stat-label">Membros cadastrados</span><span class="stat-icon copper">${ICON('users')}</span></div><div class="stat-number">${esc(total)}</div><div class="stat-bottom"><span>base da igreja</span><span>multi-igreja</span></div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Ativos</span><span class="stat-icon green">${ICON('check-circle')}</span></div><div class="stat-number">${esc(active)}</div><div class="stat-bottom"><span>em acompanhamento</span><span>status atualizado</span></div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Meta de crescimento</span><span class="stat-icon gold">${ICON('arrow-up-right')}</span></div><div class="stat-number">${esc(state.growthGoals?.members || 0)}</div><div class="stat-bottom"><span>membros até o fim do ciclo</span><button class="panel-link" data-action="growth-goals">Editar meta ${ICON('arrow-up-right')}</button></div></article></div><section class="panel"><div class="panel-header"><div class="panel-heading"><h2>Cadastro de membros</h2><p>Dados separados e protegidos para esta igreja.</p></div><span class="status-pill status-integrated">${esc(total)} ${total === 1 ? 'membro' : 'membros'}</span></div><div class="team-list" style="padding:0 22px 22px;">${rows}</div></section>`;
 }
 
 function renderAcolhimento() {
@@ -636,7 +686,7 @@ function renderAcolhimento() {
 }
 
 function renderEventRow(event) {
-  return `<div class="event-row"><div class="event-date"><strong>${String(dateDay(event.date)).padStart(2, '0')}</strong><span>${esc(dateMonth(event.date))}</span></div><div class="event-info"><strong>${esc(event.title)}</strong><span>${ICON('clock')} ${esc(event.time)} · ${esc(event.location)}</span></div><span class="event-tag">${esc(event.type)}</span></div>`;
+  return `<div class="event-row"><div class="event-date"><strong>${String(dateDay(event.date)).padStart(2, '0')}</strong><span>${esc(dateMonth(event.date))}</span></div><div class="event-info"><strong>${esc(event.title)}</strong><span>${ICON('clock')} ${esc(event.time)} · ${esc(event.location)}</span></div><span class="event-tag">${esc(event.type)}${event.recurrenceId ? ' · recorrente' : ''}</span></div>`;
 }
 
 function renderVisitors() {
@@ -706,14 +756,17 @@ function renderAnnouncement(item) {
 
 function renderAgenda() {
   const church = getActiveChurch();
-  const monthDate = '2026-09-01';
-  const firstDay = parseDate(monthDate).getDay();
-  const daysInMonth = new Date(2026, 9, 0).getDate();
-  const daysInPrevMonth = new Date(2026, 8, 0).getDate();
+  const monthDate = `${state.calendarMonth || TODAY.slice(0, 7)}-01`;
+  const monthCursor = parseDate(monthDate);
+  const year = monthCursor.getFullYear();
+  const month = monthCursor.getMonth();
+  const firstDay = monthCursor.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
   const cells = [];
   for (let i = firstDay - 1; i >= 0; i--) cells.push(`<div class="calendar-day muted">${daysInPrevMonth - i}</div>`);
   for (let day = 1; day <= daysInMonth; day++) {
-    const date = `2026-09-${String(day).padStart(2, '0')}`;
+    const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const hasEvent = state.events.some(event => event.date === date);
     const today = date === TODAY;
     cells.push(`<div class="calendar-day ${today ? 'today' : ''} ${hasEvent ? 'has-event' : ''}">${day}</div>`);
@@ -722,7 +775,7 @@ function renderAgenda() {
   while (cells.length < 42) cells.push(`<div class="calendar-day muted">${nextDay++}</div>`);
   return `
     <section class="page-head"><div><span class="eyebrow">PROGRAMAÇÃO</span><h1>Agenda</h1><p>Uma visão simples de tudo o que está acontecendo na ${esc(church.name)}.</p></div><div class="page-actions"><button class="btn btn-secondary" data-action="export-events">${ICON('download')} Exportar agenda</button><button class="btn btn-gold" data-action="new-event">${ICON('plus')} Novo evento</button></div></section>
-    <div class="agenda-layout"><section class="panel agenda-card"><div class="month-header"><button class="icon-btn" aria-label="Mês anterior" data-action="calendar-prev">${ICON('chevron-right')}</button><h2>Setembro 2026</h2><div class="month-header-actions"><button class="btn btn-secondary" data-action="today">Hoje</button><button class="icon-btn" aria-label="Próximo mês" data-action="calendar-next">${ICON('chevron-right')}</button></div></div><div class="weekdays"><span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SÁB</span></div><div class="calendar-grid">${cells.join('')}</div><div class="agenda-events"><h3>Eventos desta semana</h3>${sortedEvents().slice(0, 4).map(event => `<div class="agenda-event"><div class="event-date"><strong>${String(dateDay(event.date)).padStart(2, '0')}</strong><span>${esc(dateMonth(event.date))}</span></div><div class="event-info"><strong>${esc(event.title)}</strong><span>${ICON('clock')} ${esc(event.time)} · ${esc(event.location)}</span></div><span class="event-tag">${esc(event.type)}</span></div>`).join('')}</div></section><div class="side-stack"><section class="panel info-card"><div class="card-topline"><div><h3>Próximo encontro</h3><p>O que vem a seguir na agenda.</p></div><div class="icon-tile copper">${ICON('calendar')}</div></div>${renderNextEvent(sortedEvents()[0])}</section><section class="panel info-card"><div class="card-topline"><div><h3>Resumo da agenda</h3><p>Programação organizada por categoria.</p></div><div class="icon-tile gold">${ICON('clipboard-check')}</div></div><div class="split-stat"><div><small>Cultos</small><strong>${state.events.filter(event => event.type === 'Culto').length}</strong></div><div><small>Encontros</small><strong>${state.events.filter(event => event.type !== 'Culto').length}</strong></div><div><small>Este mês</small><strong>${state.events.length}</strong></div></div><button class="btn btn-secondary btn-full" style="margin-top: 22px;" data-action="new-event">${ICON('plus')} Adicionar evento</button></section></div></div>
+    <div class="agenda-layout"><section class="panel agenda-card"><div class="month-header"><button class="icon-btn" aria-label="Mês anterior" data-action="calendar-prev">${ICON('chevron-right')}</button><h2>${esc(monthLabel(monthDate))}</h2><div class="month-header-actions"><button class="btn btn-secondary" data-action="today">Hoje</button><button class="icon-btn" aria-label="Próximo mês" data-action="calendar-next">${ICON('chevron-right')}</button></div></div><div class="weekdays"><span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SÁB</span></div><div class="calendar-grid">${cells.join('')}</div><div class="agenda-events"><h3>Eventos desta semana</h3>${sortedEvents().slice(0, 4).map(event => `<div class="agenda-event"><div class="event-date"><strong>${String(dateDay(event.date)).padStart(2, '0')}</strong><span>${esc(dateMonth(event.date))}</span></div><div class="event-info"><strong>${esc(event.title)}</strong><span>${ICON('clock')} ${esc(event.time)} · ${esc(event.location)}</span></div><span class="event-tag">${esc(event.type)}</span></div>`).join('')}</div></section><div class="side-stack"><section class="panel info-card"><div class="card-topline"><div><h3>Próximo encontro</h3><p>O que vem a seguir na agenda.</p></div><div class="icon-tile copper">${ICON('calendar')}</div></div>${renderNextEvent(sortedEvents()[0])}</section><section class="panel info-card"><div class="card-topline"><div><h3>Resumo da agenda</h3><p>Programação organizada por categoria.</p></div><div class="icon-tile gold">${ICON('clipboard-check')}</div></div><div class="split-stat"><div><small>Cultos</small><strong>${state.events.filter(event => event.type === 'Culto').length}</strong></div><div><small>Encontros</small><strong>${state.events.filter(event => event.type !== 'Culto').length}</strong></div><div><small>Este mês</small><strong>${state.events.length}</strong></div></div><button class="btn btn-secondary btn-full" style="margin-top: 22px;" data-action="new-event">${ICON('plus')} Adicionar evento</button></section></div></div>
   `;
 }
 
@@ -754,16 +807,18 @@ function renderSettings() {
   const churchPastors = church.pastors || 'Evandro e Simone';
   const churchDescription = church.description || 'Um lugar para pertencer, crescer e viver a fé em comunidade.';
   const appearance = { ...DEFAULT_APPEARANCE, ...(church.appearance || {}) };
+  const publicSettings = { visible: true, headline: church.description || '', address: church.city || '', hours: 'Domingos às 19h', instagram: '', facebook: '', youtube: '', cta: 'Venha nos visitar', ...(church.publicSettings || {}) };
   const organizationManagement = isPlatformAdmin() ? `<section class="settings-card saas-card" data-settings-panel="saas"><div class="saas-content"><div class="settings-card-header" style="border:0;padding-bottom:0;margin-bottom:0;"><div><h2>Pronto para outras igrejas</h2><p>A administração da plataforma gerencia organizações, planos e responsáveis.</p></div><div class="icon-tile gold">${ICON('crown')}</div></div><div class="plan-line"><span class="plan-badge">Administrador da plataforma</span><span>${state.churches.length} organização${state.churches.length === 1 ? '' : 'ões'} cadastrada${state.churches.length === 1 ? '' : 's'}</span></div><div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:20px;"><div><strong style="font-size:12px;">Área de organizações</strong><p class="field-note" style="margin-top:5px;">Cadastre novas igrejas, planos e responsáveis em um único painel.</p></div><button class="btn btn-primary" data-action="new-church">${ICON('plus')} Adicionar igreja</button></div></div></section><section class="settings-card" data-settings-panel="saas"><div class="settings-card-header"><div><h2>Igrejas cadastradas</h2><p>Organizações disponíveis nesta conta administradora.</p></div><span class="status-pill status-integrated">${state.churches.length} ativa${state.churches.length === 1 ? '' : 's'}</span></div><div class="tenant-list">${state.churches.map(ch => `<div class="tenant-row"><div class="tenant-logo">${esc(ch.initials || initials(ch.name))}</div><div class="tenant-copy"><strong>${esc(ch.name)}</strong><span>${esc(ch.city)} · ${esc(ch.members || 0)} pessoas alcançadas</span></div><span class="tenant-status">${esc(ch.status || 'Ativa')}</span><button class="table-action" data-action="switch-church" data-id="${esc(ch.id)}" aria-label="Abrir ${esc(ch.name)}">${ICON('chevron-right')}</button></div>`).join('')}</div></section>` : `<section class="settings-card pastor-scope-card" data-settings-panel="organization"><div class="settings-card-header"><div><h2>Acesso da sua igreja</h2><p>Você está conectado como pastor e administra somente os dados desta organização.</p></div><div class="icon-tile copper">${ICON('shield')}</div></div><div class="pastor-scope-grid"><div><span class="scope-label">IGREJA ATIVA</span><strong>${esc(church.name)}</strong><p>${esc(church.city)} · identidade, visitantes e avisos desta igreja.</p></div><span class="access-scope-badge">PASTOR DA IGREJA</span></div><div class="scope-note"><span>${ICON('check-circle')}</span><p><strong>Você pode editar o nome e o logo</strong> desta igreja em “Identidade da igreja”. As outras igrejas e seus dados ficam protegidos e são administrados pelo administrador da plataforma.</p></div></section>`;
   const backupHistory = getBackupHistory();
   const latestBackup = backupHistory[0];
   const backupCard = `<section class="settings-card backup-settings-card" data-settings-panel="organization"><div class="settings-card-header"><div><h2>Backup automático</h2><p>Uma cópia é criada a cada alteração salva na plataforma.</p></div><span class="backup-status"><span></span> ATIVO</span></div><div class="backup-summary"><div class="backup-summary-icon">${ICON('shield')}</div><div><strong>Dados protegidos automaticamente</strong><p>Último backup: ${esc(formatBackupDate(latestBackup?.createdAt))}</p></div><span class="backup-version-count">${backupHistory.length} ${backupHistory.length === 1 ? 'versão guardada' : 'versões guardadas'}</span></div><p class="field-note backup-note">As versões recentes incluem visitantes, famílias, avisos, agenda, equipe e identidade da ${esc(church.name)}.</p></section>`;
   return `
     <section class="page-head"><div><span class="eyebrow">ÁREA ADMINISTRATIVA</span><h1>Configurações</h1><p>Personalize a experiência da ${esc(church.name)} e prepare sua igreja para crescer.</p></div><div class="page-actions"><button class="btn btn-secondary" data-action="open-public-page">${ICON('external')} Ver página pública</button><button class="btn btn-gold" data-action="save-settings">${ICON('check')} Salvar alterações</button></div></section>
-    <div class="settings-layout"><aside class="settings-nav"><button class="active" data-settings-section="organization">${ICON('building')} Igreja</button><button data-settings-section="notifications">${ICON('bell')} Notificações</button><button data-settings-section="team">${ICON('users')} Equipe e acesso</button>${isPlatformAdmin() ? `<button data-settings-section="saas">${ICON('crown')} Plataforma SaaS</button>` : ''}</aside><div class="settings-panels">
+    <div class="settings-layout"><aside class="settings-nav"><button class="active" data-settings-section="organization">${ICON('building')} Igreja</button><button data-settings-section="public">${ICON('external')} Página pública</button><button data-settings-section="notifications">${ICON('bell')} Notificações</button><button data-settings-section="team">${ICON('users')} Equipe e acesso</button>${isPlatformAdmin() ? `<button data-settings-section="saas">${ICON('crown')} Plataforma SaaS</button>` : ''}</aside><div class="settings-panels">
       <section class="settings-card" data-settings-panel="organization"><div class="settings-card-header"><div><h2>Identidade da igreja</h2><p>O pastor ou administrador desta igreja pode editar estas informações.</p></div><div style="display:flex;align-items:center;gap:9px;"><span class="access-scope-badge">${isPlatformAdmin() ? 'ADMIN DA PLATAFORMA' : 'PASTOR DA IGREJA'}</span><div class="icon-tile gold">${ICON('building')}</div></div></div><form data-form="organization"><div class="logo-editor"><div class="logo-preview" id="logoPreview"><span id="settingsLogoSymbol" ${churchLogo ? 'hidden' : ''}>${esc(churchLogoText(church))}</span><img id="settingsLogoImage" src="${esc(churchLogo)}" alt="Logo atual da igreja" ${churchLogo ? '' : 'hidden'}></div><div class="logo-editor-copy"><div class="form-field"><label for="churchLogoSymbol">Símbolo ou iniciais</label><input class="input" id="churchLogoSymbol" name="logoSymbol" maxlength="2" value="${esc(churchLogoText(church))}" placeholder="Ex.: B"></div><div class="file-upload-field"><label class="file-label" for="churchLogoFile">${ICON('download')} Enviar imagem do logo</label><input id="churchLogoFile" name="logoFile" type="file" accept="image/png,image/jpeg,image/webp" class="file-input"></div><button type="button" class="btn btn-quiet logo-remove" data-action="remove-logo">Usar somente o símbolo de texto</button><p class="field-note">O logo escolhido aparece ao lado de “Início” e da lupa.</p></div></div><div class="form-grid"><div class="form-field"><label for="churchName">Nome da igreja</label><input class="input" id="churchName" name="churchName" value="${esc(church.name)}"></div><div class="form-field"><label for="churchCity">Cidade e estado</label><input class="input" id="churchCity" name="churchCity" value="${esc(church.city)}"></div><div class="form-field"><label for="pastorName">Pastores responsáveis</label><input class="input" id="pastorName" name="pastorName" value="${esc(churchPastors)}"></div><div class="form-field"><label for="churchPhone">Telefone principal</label><input class="input" id="churchPhone" name="churchPhone" type="tel" value="${esc(churchPhone)}" placeholder="(21) 99999-9999"></div><div class="form-field full"><label for="churchDescription">Mensagem de boas-vindas</label><textarea class="textarea" id="churchDescription" name="churchDescription" rows="3">${esc(churchDescription)}</textarea><p class="field-note">A identidade visual da ${esc(church.name)} usa fundo preto/chumbo com dourado e cobre.</p></div></div></form></section>
       <section class="settings-card appearance-settings" data-settings-panel="organization"><div class="settings-card-header"><div><h2>Aparência da igreja</h2><p>O pastor pode personalizar o visual desta igreja sem afetar outras organizações.</p></div><div class="icon-tile gold">${ICON('sparkle')}</div></div><div class="form-grid"><div class="form-field"><label for="appearanceTheme">Tema</label><select class="select" id="appearanceTheme" data-appearance-control><option value="light" ${appearance.theme === 'light' ? 'selected' : ''}>Claro</option><option value="dark" ${appearance.theme === 'dark' ? 'selected' : ''}>Escuro</option><option value="auto" ${appearance.theme === 'auto' ? 'selected' : ''}>Automático</option></select><p class="field-note">Aplica-se ao painel do pastor e da equipe.</p></div><div class="form-field"><label for="appearanceFont">Fonte principal</label><select class="select" id="appearanceFont" data-appearance-control><option value="editorial" ${appearance.font === 'editorial' ? 'selected' : ''}>Editorial</option><option value="modern" ${appearance.font === 'modern' ? 'selected' : ''}>Moderna</option><option value="classic" ${appearance.font === 'classic' ? 'selected' : ''}>Clássica</option><option value="clean" ${appearance.font === 'clean' ? 'selected' : ''}>Limpa</option></select><p class="field-note">Escolha uma personalidade para a sua igreja.</p></div><div class="form-field"><label for="appearancePrimary">Cor principal</label><div class="color-control"><input type="color" id="appearancePrimary" value="${esc(appearance.primary)}" data-appearance-control><input class="input color-value" value="${esc(appearance.primary.toUpperCase())}" data-color-text="appearancePrimary" maxlength="7" aria-label="Código da cor principal"></div></div><div class="form-field"><label for="appearanceAccent">Cor de destaque</label><div class="color-control"><input type="color" id="appearanceAccent" value="${esc(appearance.accent)}" data-appearance-control><input class="input color-value" value="${esc(appearance.accent.toUpperCase())}" data-color-text="appearanceAccent" maxlength="7" aria-label="Código da cor de destaque"></div></div></div><div class="palette-block"><div><label>Paletas rápidas</label><p class="field-note">Comece por uma combinação e ajuste as cores se quiser.</p></div><div class="palette-list">${Object.entries(PALETTES).map(([key, palette]) => `<button type="button" class="palette-swatch" data-action="apply-palette" data-palette="${key}" title="${esc(palette.label)}"><span style="background:${palette.primary}"></span><i style="background:${palette.accent}"></i><small>${esc(palette.label)}</small></button>`).join('')}</div></div><div class="appearance-preview"><div class="preview-copy"><span class="eyebrow">PRÉVIA</span><strong>Assim a ${esc(church.name)} aparece para sua equipe</strong><p>As mudanças são aplicadas imediatamente e ficam salvas nesta igreja.</p></div><div class="preview-chip">${ICON('check')} Personalizado</div></div></section>
       ${backupCard}
+      <section class="settings-card public-settings-card" data-settings-panel="public"><div class="settings-card-header"><div><h2>Página pública da igreja</h2><p>Edite o conteúdo que qualquer pessoa pode ver, sem login.</p></div><div class="icon-tile gold">${ICON('external')}</div></div><form data-form="organization" data-public-settings-form><div class="scope-note" style="margin:0 0 18px;"><span>${ICON('shield')}</span><p><strong>Link público:</strong> ${esc(`${window.location.origin}${(window.location.pathname || '/').replace(/[^/]*$/, '')}publica.html?igreja=${encodeURIComponent(church.slug || slugify(church.name))}`)}<br>O pastor pode deixar a página invisível enquanto prepara as informações.</p></div><div class="toggle-row"><div class="toggle-copy"><strong>Publicar página da igreja</strong><span>Quando desligada, visitantes receberão uma mensagem de indisponibilidade.</span></div><input type="checkbox" name="publicVisible" ${publicSettings.visible !== false ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--gold);" aria-label="Publicar página pública"></div><div class="form-grid"><div class="form-field full"><label for="publicHeadline">Chamada principal</label><input class="input" id="publicHeadline" name="publicHeadline" value="${esc(publicSettings.headline)}" placeholder="Ex.: Um lugar para pertencer"></div><div class="form-field full"><label for="publicAddress">Endereço ou referência</label><input class="input" id="publicAddress" name="publicAddress" value="${esc(publicSettings.address)}" placeholder="Rua, número, bairro e cidade"></div><div class="form-field"><label for="publicHours">Horários</label><input class="input" id="publicHours" name="publicHours" value="${esc(publicSettings.hours)}" placeholder="Domingos às 19h"></div><div class="form-field"><label for="publicCta">Botão de chamada</label><input class="input" id="publicCta" name="publicCta" value="${esc(publicSettings.cta)}" placeholder="Venha nos visitar"></div><div class="form-field"><label for="publicInstagram">Instagram</label><input class="input" id="publicInstagram" name="publicInstagram" value="${esc(publicSettings.instagram)}" placeholder="https://instagram.com/..."></div><div class="form-field"><label for="publicFacebook">Facebook</label><input class="input" id="publicFacebook" name="publicFacebook" value="${esc(publicSettings.facebook)}" placeholder="https://facebook.com/..."></div><div class="form-field"><label for="publicYoutube">YouTube</label><input class="input" id="publicYoutube" name="publicYoutube" value="${esc(publicSettings.youtube)}" placeholder="https://youtube.com/..."></div></div><p class="field-note">Clique em “Salvar alterações” no alto da página depois de editar os campos.</p></form></section>
       <section class="settings-card" data-settings-panel="notifications"><div class="settings-card-header"><div><h2>Preferências de notificação</h2><p>Escolha como a equipe recebe as informações importantes.</p></div><div class="icon-tile copper">${ICON('bell')}</div></div><div class="toggle-row"><div class="toggle-copy"><strong>Novo visitante para o pastor</strong><span>Enviar um alerta quando a recepção finalizar um cadastro.</span></div><button class="toggle on" data-toggle="pastorAlert" aria-label="Alternar alerta ao pastor"></button></div><div class="toggle-row"><div class="toggle-copy"><strong>Resumo diário da igreja</strong><span>Receba um resumo com visitantes, avisos e eventos do dia.</span></div><button class="toggle on" data-toggle="dailySummary" aria-label="Alternar resumo diário"></button></div><div class="toggle-row"><div class="toggle-copy"><strong>Confirmação de leitura</strong><span>Registrar quando uma pessoa visualizar um aviso.</span></div><button class="toggle on" data-toggle="readReceipt" aria-label="Alternar confirmação de leitura"></button></div></section>
       <section class="settings-card team-settings-card" data-settings-panel="team"><div class="settings-card-header"><div><h2>Equipe e acesso</h2><p>Convide obreiros e membros para ajudar na portaria com segurança.</p></div><div class="icon-tile copper">${ICON('users')}</div></div><div class="reception-link-card"><div class="reception-link-copy"><span class="scope-label">LINK DA RECEPÇÃO</span><strong>${esc(receptionLink(church))}</strong><p>Depois de abrir o link, o obreiro entra com seu login e senha. Cada acesso é individual e protegido.</p></div><button class="btn btn-primary" data-action="copy-reception-link">${ICON('external')} Copiar link</button></div><div class="team-list-header"><div><h3>Acessos da recepção</h3><p>Todos os acessos cadastrados recebem a aba Acolhimento e podem cadastrar visitantes.</p></div><button class="btn btn-gold" data-action="new-reception">${ICON('plus')} Adicionar acesso</button></div><div class="team-list">${renderReceptionUsers()}</div></section>
       ${organizationManagement}
@@ -812,11 +867,13 @@ function openModal(type, data = {}) {
     const announcementPreview = hasVisitorAnnouncement ? `<div class="announcement-preview-card"><div class="announcement-preview-head">${ICON('users')} Prévia por grupo</div>${renderVisitorAnnouncementGroups(announcementVisitors)}</div>` : '';
     modalTitle = hasVisitorAnnouncement ? 'Anunciar visitantes' : 'Novo aviso';
     modalEyebrow = hasVisitorAnnouncement ? 'ACOLHIMENTO' : 'COMUNICAÇÃO';
-    content = `<form data-form="announcement"><div class="form-grid"><div class="form-field full"><label for="announcementTitle">Título do aviso *</label><input class="input" id="announcementTitle" name="title" value="${esc(announcementDefaults.title)}" required placeholder="Ex.: Culto de domingo"></div>${announcementPreview}<div class="form-field full"><label for="announcementBody">Mensagem *</label><textarea class="textarea" id="announcementBody" name="body" required placeholder="Escreva uma mensagem clara e acolhedora..." rows="4">${esc(announcementDefaults.body)}</textarea></div><div class="form-field"><label for="announcementAudience">Enviar para</label><select class="select" id="announcementAudience" name="audience"><option>Toda a igreja</option><option>Obreiros</option><option>Lideranças</option><option>Ministério de Mulheres</option><option>Jovens</option><option>Recepção</option></select></div><div class="form-field"><label for="announcementMode">Quando enviar</label><select class="select" id="announcementMode" name="mode"><option value="now">Enviar agora</option><option value="scheduled">Agendar envio</option></select></div><div class="form-field full"><label>Canais de envio</label><div class="radio-grid"><div class="radio-card"><input type="checkbox" id="channelPush" name="channels" value="Push" checked><label for="channelPush">${ICON('smartphone')} Push</label></div><div class="radio-card"><input type="checkbox" id="channelWhatsapp" name="channels" value="WhatsApp" checked><label for="channelWhatsapp">${ICON('whatsapp')} WhatsApp</label></div><div class="radio-card"><input type="checkbox" id="channelEmail" name="channels" value="E-mail"><label for="channelEmail">${ICON('mail')} E-mail</label></div></div></div></div><div class="checkbox-line" style="margin-top:16px;"><span style="color:var(--copper);">${ICON('shield')}</span><span>No produto final, os envios serão registrados e respeitarão as permissões de cada organização.</span></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-gold">${ICON('send')} Publicar aviso</button></div></form>`;
+    content = `<form data-form="announcement"><div class="form-grid"><div class="form-field full"><label for="announcementTitle">Título do aviso *</label><input class="input" id="announcementTitle" name="title" value="${esc(announcementDefaults.title)}" required placeholder="Ex.: Culto de domingo"></div>${announcementPreview}<div class="form-field full"><label for="announcementBody">Mensagem *</label><textarea class="textarea" id="announcementBody" name="body" required placeholder="Escreva uma mensagem clara e acolhedora..." rows="4">${esc(announcementDefaults.body)}</textarea></div><div class="form-field"><label for="announcementAudience">Enviar para</label><select class="select" id="announcementAudience" name="audience"><option>Toda a igreja</option><option>Obreiros</option><option>Lideranças</option><option>Ministério de Mulheres</option><option>Jovens</option><option>Visitantes</option><option>Recepção</option></select></div><div class="form-field"><label for="announcementMode">Quando enviar</label><select class="select" id="announcementMode" name="mode"><option value="now">Enviar agora</option><option value="scheduled">Agendar envio</option></select></div><div class="form-field full"><label>Canais de envio</label><div class="radio-grid"><div class="radio-card"><input type="checkbox" id="channelPush" name="channels" value="Push" checked><label for="channelPush">${ICON('smartphone')} Push</label></div><div class="radio-card"><input type="checkbox" id="channelWhatsapp" name="channels" value="WhatsApp" checked><label for="channelWhatsapp">${ICON('whatsapp')} WhatsApp</label></div><div class="radio-card"><input type="checkbox" id="channelEmail" name="channels" value="E-mail"><label for="channelEmail">${ICON('mail')} E-mail</label></div></div></div></div><div class="checkbox-line" style="margin-top:16px;"><span style="color:var(--copper);">${ICON('shield')}</span><span>No produto final, os envios serão registrados e respeitarão as permissões de cada organização.</span></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-gold">${ICON('send')} Publicar aviso</button></div></form>`;
   } else if (type === 'event') {
     modalTitle = 'Novo evento';
     modalEyebrow = 'AGENDA';
-    content = `<form data-form="event"><div class="form-grid"><div class="form-field full"><label for="eventTitle">Nome do evento *</label><input class="input" id="eventTitle" name="title" required placeholder="Ex.: Culto de Celebração"></div><div class="form-field"><label for="eventDate">Data *</label><input class="input" id="eventDate" name="date" type="date" value="2026-09-20" required></div><div class="form-field"><label for="eventTime">Horário *</label><input class="input" id="eventTime" name="time" type="time" value="19:00" required></div><div class="form-field"><label for="eventType">Categoria</label><select class="select" id="eventType" name="type"><option>Culto</option><option>Encontro</option><option>Festividade</option><option>Liderança</option><option>Outro</option></select></div><div class="form-field"><label for="eventLocation">Local</label><input class="input" id="eventLocation" name="location" value="Templo principal"></div><div class="form-field full"><label for="eventAudience">Público</label><select class="select" id="eventAudience" name="audience"><option>Toda a igreja</option><option>Lideranças</option><option>Obreiros</option><option>Ministério de Mulheres</option><option>Jovens</option></select></div></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-gold">${ICON('calendar')} Adicionar evento</button></div></form>`;
+    const weekdayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const defaultWeekday = parseDate(TODAY).getDay();
+    content = `<form data-form="event"><div class="form-grid"><div class="form-field full"><label for="eventTitle">Nome do evento *</label><input class="input" id="eventTitle" name="title" required placeholder="Ex.: Culto de Celebração"></div><div class="form-field"><label for="eventDate">Data de início *</label><input class="input" id="eventDate" name="date" type="date" value="${TODAY}" required></div><div class="form-field"><label for="eventTime">Horário *</label><input class="input" id="eventTime" name="time" type="time" value="19:00" required></div><div class="form-field"><label for="eventType">Categoria</label><select class="select" id="eventType" name="type"><option>Culto</option><option>Encontro</option><option>Festividade</option><option>Liderança</option><option>Outro</option></select></div><div class="form-field"><label for="eventLocation">Local</label><input class="input" id="eventLocation" name="location" value="Templo principal"></div><div class="form-field full"><label for="eventAudience">Público</label><select class="select" id="eventAudience" name="audience"><option>Toda a igreja</option><option>Lideranças</option><option>Obreiros</option><option>Ministério de Mulheres</option><option>Jovens</option><option>Visitantes</option></select></div><div class="form-field full"><label for="eventRecurrence">Repetição</label><select class="select" id="eventRecurrence" name="recurrence"><option value="none">Evento único</option><option value="weekly-month">Toda semana até o fim deste mês</option><option value="weekly-year">Toda semana até 31 de dezembro</option><option value="monthly-date">Todo mês no mesmo dia</option><option value="monthly-weekday">Todo mês no mesmo domingo, segunda, terça...</option><option value="yearly-date">Uma vez por ano na mesma data</option><option value="yearly-weekday">Uma vez por ano no mesmo domingo, segunda, terça...</option></select><p class="field-note">A agenda gera cada ocorrência automaticamente. Escolha o dia da semana abaixo quando a repetição usar domingo, quarta ou outro dia.</p></div><div class="form-field"><label for="eventWeekday">Dia da semana</label><select class="select" id="eventWeekday" name="weekday">${weekdayNames.map((name, index) => `<option value="${index}" ${index === defaultWeekday ? 'selected' : ''}>${name}</option>`).join('')}</select></div><div class="form-field"><label for="eventOrdinal">Ocorrência no mês</label><select class="select" id="eventOrdinal" name="ordinal"><option value="1">Primeiro</option><option value="2">Segundo</option><option value="3">Terceiro</option><option value="4">Quarto</option><option value="5">Quinto, quando existir</option></select></div></div><div class="scope-note" style="margin-top:16px;"><span>${ICON('calendar')}</span><p><strong>Exemplo:</strong> para um culto todos os domingos, selecione “Toda semana até 31 de dezembro” e “Domingo”.</p></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-gold">${ICON('calendar')} Adicionar evento</button></div></form>`;
   } else if (type === 'church') {
     modalTitle = 'Adicionar igreja';
     modalEyebrow = 'PLATAFORMA SAAS';
@@ -854,6 +911,26 @@ function openModal(type, data = {}) {
     modalTitle = 'Adicionar liderança';
     modalEyebrow = 'EQUIPE';
     content = `<form data-form="leader"><div class="form-grid"><div class="form-field full"><label for="leaderName">Nome completo *</label><input class="input" id="leaderName" name="name" required placeholder="Ex.: Maria Oliveira"></div><div class="form-field"><label for="leaderRole">Função</label><input class="input" id="leaderRole" name="role" placeholder="Ex.: Líder de jovens"></div><div class="form-field"><label for="leaderPhone">Telefone</label><input class="input" id="leaderPhone" name="phone" placeholder="(21) 99999-9999"></div><div class="form-field full"><label for="leaderGroup">Ministério / grupo</label><input class="input" id="leaderGroup" name="group" placeholder="Ex.: Jovens"></div></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-gold">${ICON('users')} Adicionar líder</button></div></form>`;
+  } else if (type === 'leader-detail') {
+    const leader = (state.leaders || []).find(item => item.id === data.id);
+    if (!leader) return;
+    modalTitle = leader.name;
+    modalEyebrow = 'EDITAR LIDERANÇA';
+    content = `<form data-form="leader-edit" data-id="${esc(leader.id)}"><div class="person-cell" style="padding-bottom:18px;border-bottom:1px solid #f0ede7;margin-bottom:18px;"><div class="avatar ${iconTone(leader.tone)}" style="width:46px;height:46px;">${esc(leader.initials || initials(leader.name))}</div><div><strong style="font-size:14px;">${esc(leader.name)}</strong><span style="font-size:10px;margin-top:5px;">${esc(leader.group || 'Equipe')}</span></div></div><div class="form-grid"><div class="form-field full"><label for="editLeaderName">Nome completo *</label><input class="input" id="editLeaderName" name="name" value="${esc(leader.name)}" required></div><div class="form-field"><label for="editLeaderRole">Cargo ou função</label><input class="input" id="editLeaderRole" name="role" value="${esc(leader.role)}" placeholder="Ex.: Líder de jovens"></div><div class="form-field"><label for="editLeaderPhone">Telefone</label><input class="input" id="editLeaderPhone" name="phone" value="${esc(leader.phone || '')}" placeholder="(21) 99999-9999"></div><div class="form-field full"><label for="editLeaderGroup">Ministério / grupo</label><input class="input" id="editLeaderGroup" name="group" value="${esc(leader.group || '')}" placeholder="Ex.: Jovens"></div></div><div class="modal-actions"><button type="button" class="btn btn-danger" data-action="delete-leader" data-id="${esc(leader.id)}">${ICON('x')} Excluir</button><span style="flex:1"></span><button type="button" class="btn btn-secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-gold">${ICON('check')} Salvar alterações</button></div></form>`;
+  } else if (type === 'member') {
+    modalTitle = 'Novo membro';
+    modalEyebrow = 'COMUNIDADE';
+    content = `<form data-form="member"><div class="form-grid"><div class="form-field full"><label for="memberName">Nome completo *</label><input class="input" id="memberName" name="name" required placeholder="Ex.: Ana Oliveira"></div><div class="form-field"><label for="memberPhone">Telefone</label><input class="input" id="memberPhone" name="phone" placeholder="(21) 99999-9999"></div><div class="form-field"><label for="memberEmail">E-mail</label><input class="input" id="memberEmail" name="email" type="email" placeholder="nome@email.com"></div><div class="form-field"><label for="memberMinistry">Ministério</label><input class="input" id="memberMinistry" name="ministry" placeholder="Ex.: Louvor"></div><div class="form-field"><label for="memberJoinedAt">Data de integração</label><input class="input" id="memberJoinedAt" name="joinedAt" type="date" value="${TODAY}"></div></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-gold">${ICON('users')} Salvar membro</button></div></form>`;
+  } else if (type === 'member-detail') {
+    const member = (state.members || []).find(item => item.id === data.id);
+    if (!member) return;
+    modalTitle = member.name;
+    modalEyebrow = 'MEMBRO';
+    content = `<div class="person-cell" style="padding-bottom:18px;border-bottom:1px solid #f0ede7;"><div class="avatar avatar-olive" style="width:46px;height:46px;">${esc(initials(member.name))}</div><div><strong style="font-size:14px;">${esc(member.name)}</strong><span style="font-size:10px;margin-top:5px;">${esc(member.ministry || 'Membro')}</span></div></div><div class="form-grid" style="margin-top:20px;"><div class="form-field"><label>Telefone</label><div>${esc(member.phone || 'Não informado')}</div></div><div class="form-field"><label>E-mail</label><div>${esc(member.email || 'Não informado')}</div></div><div class="form-field"><label>Status</label><div><span class="status-pill ${member.status === 'inactive' ? 'status-contacted' : 'status-integrated'}">${member.status === 'inactive' ? 'Inativo' : 'Ativo'}</span></div></div><div class="form-field"><label>Integração</label><div>${esc(member.joinedAt || 'Não informado')}</div></div></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Fechar</button></div>`;
+  } else if (type === 'growth-goals') {
+    modalTitle = 'Metas de crescimento';
+    modalEyebrow = 'ACOMPANHAMENTO';
+    content = `<form data-form="growth"><div class="scope-note" style="margin:0 0 18px;"><span>${ICON('sparkle')}</span><p>Defina objetivos possíveis para acompanhar visitantes, retornos e membros. As metas ficam salvas na igreja ativa.</p></div><div class="form-grid"><div class="form-field"><label for="goalVisitors">Visitantes no ciclo</label><input class="input" id="goalVisitors" name="visitors" type="number" min="0" value="${esc(state.growthGoals?.visitors || 0)}"></div><div class="form-field"><label for="goalReturns">Retornos no ciclo</label><input class="input" id="goalReturns" name="returns" type="number" min="0" value="${esc(state.growthGoals?.returns || 0)}"></div><div class="form-field full"><label for="goalMembers">Membros ativos</label><input class="input" id="goalMembers" name="members" type="number" min="0" value="${esc(state.growthGoals?.members || 0)}"></div></div><div class="modal-actions"><button type="button" class="btn btn-secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-gold">${ICON('check')} Salvar metas</button></div></form>`;
   }
   title.textContent = modalTitle;
   eyebrow.textContent = modalEyebrow;
@@ -896,6 +973,56 @@ function showToast(message, kind = 'success') {
   toast.innerHTML = `<span class="toast-icon">${ICON(kind === 'error' ? 'x' : 'check')}</span><span>${esc(message)}</span>`;
   stack.appendChild(toast);
   setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(6px)'; setTimeout(() => toast.remove(), 250); }, 3600);
+}
+
+function isoDateFromDate(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+function addDaysToDate(date, days) {
+  const copy = new Date(date.getTime());
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+function lastDayOfMonth(year, month) {
+  return new Date(year, month + 1, 0, 23, 59, 59);
+}
+function nthWeekdayDate(year, month, weekday, ordinal) {
+  const first = new Date(year, month, 1);
+  const offset = (weekday - first.getDay() + 7) % 7;
+  const date = new Date(year, month, 1 + offset + ((ordinal - 1) * 7), 12);
+  return date.getMonth() === month ? date : null;
+}
+function generateEventDates(startDateValue, recurrence, weekday, ordinal) {
+  const start = parseDate(startDateValue);
+  const type = recurrence || 'none';
+  if (type === 'none') return [isoDateFromDate(start)];
+  const dates = [];
+  const year = start.getFullYear();
+  const month = start.getMonth();
+  const end = type === 'weekly-month' ? lastDayOfMonth(year, month) : new Date(year, 11, 31, 23, 59, 59);
+  if (type === 'weekly-month' || type === 'weekly-year') {
+    let cursor = start;
+    const distance = (Number(weekday) - cursor.getDay() + 7) % 7;
+    cursor = addDaysToDate(cursor, distance);
+    while (cursor <= end) { dates.push(isoDateFromDate(cursor)); cursor = addDaysToDate(cursor, 7); }
+  } else if (type === 'monthly-date') {
+    for (let cursor = new Date(year, month, 1); cursor <= end; cursor.setMonth(cursor.getMonth() + 1)) {
+      const candidate = new Date(cursor.getFullYear(), cursor.getMonth(), start.getDate(), 12);
+      if (candidate.getMonth() === cursor.getMonth() && candidate >= start && candidate <= end) dates.push(isoDateFromDate(candidate));
+    }
+  } else if (type === 'monthly-weekday') {
+    for (let cursor = new Date(year, month, 1); cursor <= end; cursor.setMonth(cursor.getMonth() + 1)) {
+      const candidate = nthWeekdayDate(cursor.getFullYear(), cursor.getMonth(), Number(weekday), Number(ordinal));
+      if (candidate && candidate >= start && candidate <= end) dates.push(isoDateFromDate(candidate));
+    }
+  } else if (type === 'yearly-date') {
+    const candidate = new Date(year, month, start.getDate(), 12);
+    if (candidate >= start && candidate <= end) dates.push(isoDateFromDate(candidate));
+  } else if (type === 'yearly-weekday') {
+    const candidate = nthWeekdayDate(year, month, Number(weekday), Number(ordinal));
+    if (candidate && candidate >= start && candidate <= end) dates.push(isoDateFromDate(candidate));
+  }
+  return [...new Set(dates.length ? dates : [isoDateFromDate(start)])];
 }
 
 async function handleSubmit(event) {
@@ -942,11 +1069,22 @@ async function handleSubmit(event) {
   } else if (formType === 'event') {
     const title = String(data.get('title') || '').trim();
     if (!title) return showToast('Informe o nome do evento.', 'error');
-    const eventItem = { id: `e-${Date.now()}`, title, date: String(data.get('date') || TODAY), time: String(data.get('time') || '19:00'), location: String(data.get('location') || 'Templo principal'), type: String(data.get('type') || 'Outro'), audience: String(data.get('audience') || 'Toda a igreja') };
-    state.events.push(eventItem);
-    state.events.sort((a, b) => a.date.localeCompare(b.date));
-    state.activity.unshift({ type: 'event', name: title, text: 'foi adicionado à agenda.', time: 'Agora', initials: initials(title), tone: 'dark' });
-    saveState(); closeModal(); render(); showToast('Evento adicionado à agenda.');
+    const startDate = String(data.get('date') || TODAY);
+    const recurrence = String(data.get('recurrence') || 'none');
+    const weekday = Number(data.get('weekday') || parseDate(startDate).getDay());
+    const ordinal = Number(data.get('ordinal') || 1);
+    const dates = generateEventDates(startDate, recurrence, weekday, ordinal);
+    const recurrenceId = `rec-${Date.now()}`;
+    const base = { title, time: String(data.get('time') || '19:00'), location: String(data.get('location') || 'Templo principal'), type: String(data.get('type') || 'Outro'), audience: String(data.get('audience') || 'Toda a igreja'), recurrenceRule: { type: recurrence, weekday, ordinal, until: recurrence.includes('year') || recurrence === 'monthly-date' || recurrence === 'monthly-weekday' || recurrence === 'yearly-date' || recurrence === 'yearly-weekday' ? `${startDate.slice(0, 4)}-12-31` : `${startDate.slice(0, 7)}-${String(new Date(Number(startDate.slice(0, 4)), Number(startDate.slice(5, 7)), 0).getDate()).padStart(2, '0')}` }, recurrenceId };
+    const events = dates.map(date => ({ ...base, date }));
+    try {
+      await apiRequest('/api/church/events/bulk', { method: 'POST', body: { events } });
+      await loadRemoteChurchState(state.currentUser);
+      closeModal(); render();
+      showToast(`${events.length} ${events.length === 1 ? 'evento adicionado' : 'ocorrências adicionadas'} à agenda.`);
+    } catch (error) {
+      showToast(`Não foi possível salvar o evento: ${error.message}`, 'error');
+    }
   } else if (formType === 'church') {
     const name = String(data.get('name') || '').trim();
     if (!name) return showToast('Informe o nome da igreja.', 'error');
@@ -954,11 +1092,38 @@ async function handleSubmit(event) {
     state.churches.push(church);
     state.activeChurchId = church.id;
     saveState(); closeModal(); render(); showToast(`${name} foi adicionada como nova organização.`);
-  } else if (formType === 'leader') {
+  } else if (formType === 'leader' || formType === 'leader-edit') {
     const name = String(data.get('name') || '').trim();
     if (!name) return showToast('Informe o nome da liderança.', 'error');
-    state.leaders.push({ id: `l-${Date.now()}`, name, role: String(data.get('role') || 'Líder'), phone: String(data.get('phone') || 'Não informado'), group: String(data.get('group') || 'A definir'), initials: initials(name), tone: 'dark' });
-    saveState(); closeModal(); render(); showToast(`${name} foi adicionada à equipe.`);
+    const payload = { name, role: String(data.get('role') || 'Líder'), phone: String(data.get('phone') || ''), group: String(data.get('group') || '') };
+    try {
+      if (formType === 'leader') await apiRequest('/api/church/leaders', { method: 'POST', body: payload });
+      else await apiRequest(`/api/church/leaders/${encodeURIComponent(form.dataset.id)}`, { method: 'PATCH', body: payload });
+      await loadRemoteChurchState(state.currentUser);
+      closeModal(); render(); showToast(formType === 'leader' ? `${name} foi adicionada à equipe.` : 'Dados da liderança atualizados.');
+    } catch (error) {
+      showToast(`Não foi possível salvar a liderança: ${error.message}`, 'error');
+    }
+  } else if (formType === 'member') {
+    const name = String(data.get('name') || '').trim();
+    if (!name) return showToast('Informe o nome do membro.', 'error');
+    try {
+      await apiRequest('/api/church/members', { method: 'POST', body: { name, email: String(data.get('email') || '').trim(), phone: String(data.get('phone') || '').trim(), ministry: String(data.get('ministry') || '').trim(), status: String(data.get('status') || 'active'), joinedAt: String(data.get('joinedAt') || '') || null } });
+      await loadRemoteChurchState(state.currentUser);
+      closeModal(); render(); showToast(`${name} foi cadastrado como membro.`);
+    } catch (error) {
+      showToast(`Não foi possível salvar o membro: ${error.message}`, 'error');
+    }
+  } else if (formType === 'growth') {
+    state.growthGoals = { visitors: Math.max(0, Number(data.get('visitors') || 0)), returns: Math.max(0, Number(data.get('returns') || 0)), members: Math.max(0, Number(data.get('members') || 0)) };
+    const church = getActiveChurch();
+    church.publicSettings = { ...(church.publicSettings || {}), growthGoals: state.growthGoals };
+    try {
+      await apiRequest('/api/church/settings', { method: 'PUT', body: { name: church.name, city: church.city, phone: church.phone || '', pastors: church.pastors || '', description: church.description || '', logoUrl: church.logoImage || '', publicSettings: church.publicSettings } });
+      saveState('Metas de crescimento atualizadas'); closeModal(); render(); showToast('Metas de crescimento salvas.');
+    } catch (error) {
+      showToast(`Não foi possível salvar as metas: ${error.message}`, 'error');
+    }
   } else if (formType === 'reception') {
     const name = String(data.get('name') || '').trim();
     const login = String(data.get('login') || '').trim().toLowerCase();
@@ -984,8 +1149,13 @@ async function handleSubmit(event) {
     church.initials = initials(church.name);
     if (pendingLogoImage !== null) church.logoImage = pendingLogoImage;
     pendingLogoImage = null;
-    apiRequest('/api/church/settings', { method: 'PUT', body: { name: church.name, city: church.city, phone: church.phone, pastors: church.pastors, description: church.description, logoUrl: church.logoImage || '' } })
-      .then(() => { saveState('Identidade e telefone da igreja atualizados'); render(); showToast('Nome, telefone e identidade visual da igreja atualizados no banco.'); })
+    const publicForm = document.querySelector('[data-public-settings-form]');
+    const publicData = publicForm ? new FormData(publicForm) : data;
+    const publicValue = (key, fallback = '') => String(publicData.get(key) ?? fallback).trim();
+    const publicSettings = { ...(church.publicSettings || {}), visible: publicForm ? publicForm.querySelector('[name="publicVisible"]')?.checked !== false : (church.publicSettings?.visible !== false), headline: publicValue('publicHeadline', church.description || ''), address: publicValue('publicAddress', church.city || ''), hours: publicValue('publicHours', 'Domingos às 19h'), instagram: publicValue('publicInstagram', ''), facebook: publicValue('publicFacebook', ''), youtube: publicValue('publicYoutube', ''), cta: publicValue('publicCta', 'Venha nos visitar') };
+    church.publicSettings = publicSettings;
+    apiRequest('/api/church/settings', { method: 'PUT', body: { name: church.name, city: church.city, phone: church.phone, pastors: church.pastors, description: church.description, logoUrl: church.logoImage || '', publicSettings } })
+      .then(() => { saveState('Identidade e página pública da igreja atualizadas'); render(); showToast('Identidade e página pública atualizadas no banco.'); })
       .catch(error => showToast(`Não foi possível salvar a identidade: ${error.message}`, 'error'));
   }
 }
@@ -1007,9 +1177,9 @@ function prepareVisitorAnnouncement(id) {
 }
 
 function announceNewVisitors() {
-  const newVisitors = pendingPulpitVisitors();
-  if (!newVisitors.length) return showToast('Não há visitantes pendentes para anunciar.', 'error');
-  openModal('announcement', { visitors: newVisitors });
+  const pending = pendingPulpitVisitors();
+  const visitors = pending.length ? pending : state.visitors.slice(0, 6);
+  openModal('announcement', { visitors });
 }
 
 function markPulpitAnnounced() {
@@ -1069,6 +1239,34 @@ function deleteReceptionAccess(id) {
   closeModal();
   render();
   showToast(`Acesso de ${receptionUser.name} excluído.`);
+}
+
+async function deleteLeader(id) {
+  const leader = (state.leaders || []).find(item => item.id === id);
+  if (!leader || !window.confirm(`Excluir a liderança de ${leader.name}?`)) return;
+  try {
+    await apiRequest(`/api/church/leaders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await loadRemoteChurchState(state.currentUser);
+    closeModal(); render(); showToast(`${leader.name} foi excluído da equipe.`);
+  } catch (error) {
+    showToast(`Não foi possível excluir a liderança: ${error.message}`, 'error');
+  }
+}
+
+function exportMembers() {
+  const headers = ['Nome', 'E-mail', 'Telefone', 'Ministério', 'Status', 'Data de integração'];
+  const rows = (state.members || []).map(member => [member.name, member.email, member.phone, member.ministry, member.status === 'inactive' ? 'Inativo' : 'Ativo', member.joinedAt]);
+  if (!rows.length) return showToast('Ainda não há membros cadastrados para exportar.', 'error');
+  const csv = [headers, ...rows].map(row => row.map(escapeCSV).join(';')).join('\\n');
+  downloadBlob(`membros-${slugify(getActiveChurch()?.name || 'igreja')}-${TODAY}.csv`, `\\ufeff${csv}`, 'text/csv;charset=utf-8;');
+  showToast('Lista de membros exportada.');
+}
+
+function shiftCalendar(offset) {
+  const [year, month] = String(state.calendarMonth || TODAY.slice(0, 7)).split('-').map(Number);
+  const cursor = new Date(year, month - 1 + offset, 1);
+  state.calendarMonth = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+  saveState(); render();
 }
 
 function switchChurch(id) {
@@ -1161,6 +1359,10 @@ function handleAction(actionEl) {
     case 'new-event': openModal('event'); break;
     case 'new-church': if (!isPlatformAdmin()) showToast('Somente o administrador da plataforma pode cadastrar outra igreja.', 'error'); else openModal('church'); break;
     case 'new-leader': openModal('leader'); break;
+    case 'new-member': openModal('member'); break;
+    case 'growth-goals': openModal('growth-goals'); break;
+    case 'member-detail': openModal('member-detail', { id: actionEl.dataset.id }); break;
+    case 'delete-leader': deleteLeader(actionEl.dataset.id); break;
     case 'visitor-detail': openModal('visitor-detail', { id: actionEl.dataset.id }); break;
     case 'announce-visitors': announceNewVisitors(); break;
     case 'announce-visitor': prepareVisitorAnnouncement(actionEl.dataset.id); break;
@@ -1194,13 +1396,14 @@ function handleAction(actionEl) {
     case 'export': exportVisitors(); break;
     case 'export-events': exportEvents(); break;
     case 'export-leaders': showToast('Lista de lideranças exportada.'); break;
+    case 'export-members': exportMembers(); break;
     case 'notification': openModal('notifications'); break;
     case 'channel-settings': openModal('channels'); break;
     case 'filter-help': showToast('Use a busca e o seletor de status para filtrar os visitantes.'); break;
-    case 'calendar-prev': showToast('O calendário completo ficará disponível na próxima etapa.'); break;
-    case 'calendar-next': showToast('O calendário completo ficará disponível na próxima etapa.'); break;
-    case 'today': showToast('Você está visualizando setembro de 2026.'); break;
-    case 'open-public-page': showToast('A página pública da igreja será conectada na próxima etapa.'); break;
+    case 'calendar-prev': shiftCalendar(-1); break;
+    case 'calendar-next': shiftCalendar(1); break;
+    case 'today': state.calendarMonth = TODAY.slice(0, 7); saveState(); render(); break;
+    case 'open-public-page': { const publicPath = `${(window.location.pathname || '/').replace(/[^/]*$/, '')}publica.html?igreja=${encodeURIComponent(getActiveChurch()?.slug || slugify(getActiveChurch()?.name || 'igreja'))}`; window.open(publicPath, '_blank', 'noopener'); break; }
     case 'remove-logo': pendingLogoImage = ''; updateLogoPreview(); showToast('O símbolo de texto será usado como logo.'); break;
     case 'apply-palette': applyPalette(actionEl.dataset.palette); break;
     case 'new-reception': openModal('reception'); break;
@@ -1214,7 +1417,7 @@ function handleAction(actionEl) {
       $('[data-form="organization"]')?.requestSubmit();
       break;
     }
-    case 'leader-detail': showToast('Perfil de liderança selecionado.'); break;
+    case 'leader-detail': openModal('leader-detail', { id: actionEl.dataset.id }); break;
     case 'go-communication': closeModal(); setView('communication'); break;
     case 'go-agenda': closeModal(); setView('agenda'); break;
     case 'go-leaders': closeModal(); setView('leaders'); break;
