@@ -181,7 +181,7 @@ function loadState() {
   try { saved = JSON.parse(localStorage.getItem(STATE_KEY) || 'null'); } catch (error) { saved = null; }
   const base = saved && Array.isArray(saved.churches) ? saved : {
     activeChurchId: 'batesda',
-    churches: [{ id: 'batesda', name: 'Bethesda', city: 'Itaboraí • RJ', initials: 'BE', logoSymbol: 'B', logoImage: 'bethesda-logo.png', plan: 'cuidado', status: 'Ativa', memberCount: 246, monthlyValue: 99.90, billingStatus: 'Em dia', nextDue: '10 set 2026' }],
+    churches: [{ id: 'batesda', name: 'Bethesda', city: 'Itaboraí • RJ', initials: 'BE', logoSymbol: 'B', logoImage: 'bethesda-logo.png', plan: 'cuidado', status: 'Ativa', memberCount: 0, monthlyValue: 99.90, billingStatus: 'Em dia', nextDue: '10 set 2026' }],
     visitors: [],
     receptionUsers: []
   };
