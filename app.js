@@ -22,13 +22,13 @@ const defaultState = {
   members: [],
   currentUser: { name: 'Evandro & Simone', role: 'Pastor da igreja', roleKey: 'church_admin' },
   metrics: {
-    visits: 38,
-    returns: 18,
-    reach: 246,
-    announcements: 12
+    visits: 0,
+    returns: 0,
+    reach: 0,
+    announcements: 0
   },
   churches: [
-    { id: 'batesda', name: 'Bethesda', slug: 'bethesda', city: 'Itaboraí • RJ', phone: '(21) 00000-0000', pastors: 'Evandro e Simone', description: 'Um lugar para pertencer, crescer e viver a fé em comunidade.', initials: 'BE', logoSymbol: 'B', logoImage: 'bethesda-logo.png', appearance: { ...DEFAULT_APPEARANCE }, publicSettings: { visible: true, headline: 'Um lugar para pertencer, crescer e viver a fé em comunidade.', address: 'Itaboraí • RJ', hours: 'Domingos às 19h', instagram: '', facebook: '', youtube: '', cta: 'Venha nos visitar' }, members: 246, status: 'Ativa', plan: 'Essencial' }
+    { id: 'batesda', name: 'Bethesda', slug: 'bethesda', city: 'Itaboraí • RJ', phone: '(21) 00000-0000', pastors: 'Evandro e Simone', description: 'Um lugar para pertencer, crescer e viver a fé em comunidade.', initials: 'BE', logoSymbol: 'B', logoImage: 'bethesda-logo.png', appearance: { ...DEFAULT_APPEARANCE }, publicSettings: { visible: true, headline: 'Um lugar para pertencer, crescer e viver a fé em comunidade.', address: 'Itaboraí • RJ', hours: 'Domingos às 19h', instagram: '', facebook: '', youtube: '', cta: 'Venha nos visitar' }, members: 0, status: 'Ativa', plan: 'Essencial' }
   ],
   visitors: [
     { id: 'v-1', name: 'Ana Clara Nogueira', familyName: 'Família Nogueira', familyMembers: ['Ana Clara Nogueira', 'Paulo Nogueira', 'Lara Nogueira'], arrivalType: 'Família', phone: '(21) 99842-1874', date: '2026-09-02', service: 'Culto de Celebração', neighborhood: 'Centro', invitedBy: 'Mariana Alves', status: 'Novo', responsible: 'Recepção', notes: 'Veio com a família.', consent: true },
@@ -166,7 +166,9 @@ async function loadRemoteChurchState(user) {
   if (results[2].ok) state.events = (eventsPayload.events || []).map(mapApiEvent);
   if (results[3].ok) state.members = (membersPayload.members || []).map(mapApiMember);
   if (results[4].ok) state.leaders = (leadersPayload.leaders || []).map(mapApiLeader);
-  state.metrics = { ...(state.metrics || {}), visits: state.visitors.length, returns: state.visitors.filter(visitor => ['Retornou', 'Integrado'].includes(visitor.status)).length, reach: Number(church?.member_count || 0) };
+  state.activity = [];
+  state.announcements = [];
+  state.metrics = { ...(state.metrics || {}), visits: state.visitors.length, returns: state.visitors.filter(visitor => ['Retornou', 'Integrado'].includes(visitor.status)).length, reach: Number(church?.member_count || 0), announcements: 0 };
   state.currentUser = { name: user?.name || 'Pastor', role: 'Pastor da igreja', roleKey: user?.role || 'church_admin', churchId: user?.churchId || state.activeChurchId };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
@@ -602,6 +604,8 @@ function updateShell() {
   if (sidebarChurchSymbol) sidebarChurchSymbol.textContent = church?.logoImage ? (church.initials || initials(church.name)) : churchLogoText(church);
   updateLogoMark('sidebarLogoSymbol', 'sidebarLogoImage', church);
   updateLogoMark('topbarLogoSymbol', 'topbarLogoImage', church);
+  const visitorNavCount = $('#visitorNavCount');
+  if (visitorNavCount) visitorNavCount.textContent = String(state.visitors.length || 0);
   $$('.nav-item, .mobile-nav-item').forEach(button => button.classList.toggle('active', button.dataset.view === state.activeView));
   const acolhimentoAvailable = canAccessAcolhimento();
   $$('[data-view="acolhimento"]').forEach(button => {
@@ -620,7 +624,7 @@ function updateShell() {
 function renderDashboard() {
   const church = getActiveChurch();
   const events = sortedEvents();
-  const chartValues = [38, 44, 41, 52, 48, 60, 54, 67, 63, 71, 69, 82];
+  const chartValues = state.visitors.length ? [38, 44, 41, 52, 48, 60, 54, 67, 63, 71, 69, 82] : Array(12).fill(0);
   return `
     <section class="page-head">
       <div>
@@ -641,9 +645,9 @@ function renderDashboard() {
     </div>
 
     <section class="stat-grid">
-      ${statCard('Visitantes este mês', state.metrics.visits, '+18,4%', 'vs. mês anterior', 'users', 'copper', false, 'visits')}
-      ${statCard('Retornos confirmados', state.metrics.returns, '+6,2%', 'da base de visitantes', 'refresh', 'gold', false, 'returns')}
-      ${statCard('Alcance da comunidade', state.metrics.reach, '+12,8%', 'pessoas alcançadas', 'send', 'green', false, 'reach')}
+      ${statCard('Visitantes este mês', state.metrics.visits, state.metrics.visits ? '+18,4%' : '—', 'vs. mês anterior', 'users', 'copper', false, 'visits')}
+      ${statCard('Retornos confirmados', state.metrics.returns, state.metrics.returns ? '+6,2%' : '—', 'da base de visitantes', 'refresh', 'gold', false, 'returns')}
+      ${statCard('Alcance da comunidade', state.metrics.reach, state.metrics.reach ? '+12,8%' : '—', 'pessoas alcançadas', 'send', 'green', false, 'reach')}
       ${statCard('Próximo culto', events[0] ? `${String(dateDay(events[0].date)).padStart(2, '0')}/${String(parseDate(events[0].date).getMonth() + 1).padStart(2, '0')}` : '—', events[0]?.time || '—', events[0]?.title || 'Nenhum evento agendado', 'calendar', 'dark', true, 'next')}
     </section>
 
@@ -657,7 +661,7 @@ function renderDashboard() {
     <section class="panel chart-panel growth-panel">
       <div class="panel-header"><div class="panel-heading"><h2>Visão de crescimento</h2><p>Visitantes registrados nas últimas 12 semanas</p></div><div class="chart-legend"><span class="legend-key"><i class="legend-dot"></i> Visitantes</span><span class="legend-key"><i class="legend-dot copper"></i> Retornos</span></div></div>
       <div class="chart-wrap"><div class="chart-y"><span>80</span><span>60</span><span>40</span><span>20</span><span>0</span></div><div class="chart-area"><div class="chart-grid"><span></span><span></span><span></span><span></span><span></span></div><div class="bars">${chartValues.map((value, index) => `<div class="bar-group"><i class="bar copper" style="height:${Math.max(12, value * .55)}%"></i><i class="bar gold" style="height:${value}%"></i></div>`).join('')}</div><div class="x-labels"><span>Jun 14</span><span>Jun 28</span><span>Jul 12</span><span>Jul 26</span><span>Ago 09</span><span>Ago 23</span><span>Set 04</span></div></div></div>
-      <div class="chart-footer"><span>Este mês</span><strong>${state.metrics.visits} visitantes</strong><span class="stat-trend">${ICON('arrow-up-right')} 18,4%</span><button class="panel-link" data-action="growth-goals">${ICON('sparkle')} Metas de crescimento</button></div>
+      <div class="chart-footer"><span>Este mês</span><strong>${state.metrics.visits} visitantes</strong><span class="stat-trend">${state.metrics.visits ? `${ICON('arrow-up-right')} 18,4%` : '—'}</span><button class="panel-link" data-action="growth-goals">${ICON('sparkle')} Metas de crescimento</button></div>
     </section>
     <section class="panel" style="margin-top:20px;"><div class="panel-header"><div class="panel-heading"><h2>Metas de crescimento</h2><p>Acompanhe objetivos simples para a próxima fase da igreja.</p></div><button class="btn btn-secondary" data-action="growth-goals">Editar metas</button></div><div class="split-stat" style="padding:0 22px 22px;"><div><small>Visitantes</small><strong>${esc(state.metrics.visits)} / ${esc(state.growthGoals?.visitors || 0)}</strong></div><div><small>Retornos</small><strong>${esc(state.metrics.returns)} / ${esc(state.growthGoals?.returns || 0)}</strong></div><div><small>Membros</small><strong>${esc(state.members?.length || church.members || 0)} / ${esc(state.growthGoals?.members || 0)}</strong></div></div></section>
   `;
@@ -762,8 +766,8 @@ function renderPulpit() {
 function renderCommunication() {
   return `
     <section class="page-head"><div><span class="eyebrow">CONEXÃO</span><h1>Comunicação</h1><p>Leve a palavra certa para as pessoas certas, no momento certo.</p></div><div class="page-actions"><button class="btn btn-secondary" data-action="channel-settings">${ICON('settings')} Canais</button><button class="btn btn-gold" data-action="new-announcement">${ICON('plus')} Novo aviso</button></div></section>
-    <section class="stat-grid"><article class="stat-card"><div class="stat-top"><span class="stat-label">Avisos enviados</span><span class="stat-icon gold">${ICON('megaphone')}</span></div><div class="stat-number">${state.metrics.announcements}</div><div class="stat-bottom"><span class="stat-trend">${ICON('arrow-up-right')} 14,2%</span><span>este mês</span></div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Taxa de leitura</span><span class="stat-icon green">${ICON('check-circle')}</span></div><div class="stat-number">86%</div><div class="stat-bottom"><span>média dos canais</span></div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Pessoas alcançadas</span><span class="stat-icon copper">${ICON('send')}</span></div><div class="stat-number">${state.metrics.reach}</div><div class="stat-bottom"><span>membros e visitantes</span></div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Canais ativos</span><span class="stat-icon dark">${ICON('smartphone')}</span></div><div class="stat-number">3</div><div class="stat-bottom"><span>Push · WhatsApp · E-mail</span></div></article></section>
-    <div class="section-grid"><section class="panel"><div class="panel-header"><div class="panel-heading"><h2>Últimos avisos</h2><p>Histórico de comunicações da igreja</p></div><button class="panel-link" data-action="new-announcement">Criar aviso ${ICON('plus')}</button></div><div class="announcement-list" style="padding: 0 22px 22px;">${state.announcements.map(renderAnnouncement).join('')}</div></section><section class="panel info-card"><div class="card-topline"><div><h3>Alcance por canal</h3><p>Veja como a mensagem chega à comunidade.</p></div><div class="icon-tile gold">${ICON('send')}</div></div><div class="split-stat"><div><small>Notificação push</small><strong>92%</strong></div><div><small>WhatsApp</small><strong>78%</strong></div><div><small>E-mail</small><strong>54%</strong></div></div><div class="mini-progress"><span style="width: 86%"></span></div><p class="field-note" style="margin-top: 12px;">A combinação de canais aumenta a chance de cada aviso ser visto.</p><button class="btn btn-secondary btn-full" style="margin-top: 19px;" data-action="channel-settings">${ICON('settings')} Configurar canais</button></section></div>
+    <section class="stat-grid"><article class="stat-card"><div class="stat-top"><span class="stat-label">Avisos enviados</span><span class="stat-icon gold">${ICON('megaphone')}</span></div><div class="stat-number">${state.metrics.announcements}</div><div class="stat-bottom"><span class="stat-trend">${state.metrics.announcements ? `${ICON('arrow-up-right')} 14,2%` : '—'}</span><span>este mês</span></div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Taxa de leitura</span><span class="stat-icon green">${ICON('check-circle')}</span></div><div class="stat-number">${state.metrics.announcements ? '86%' : '0%'}</div><div class="stat-bottom"><span>média dos canais</span></div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Pessoas alcançadas</span><span class="stat-icon copper">${ICON('send')}</span></div><div class="stat-number">${state.metrics.reach}</div><div class="stat-bottom"><span>membros e visitantes</span></div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Canais ativos</span><span class="stat-icon dark">${ICON('smartphone')}</span></div><div class="stat-number">${state.metrics.announcements ? '3' : '0'}</div><div class="stat-bottom"><span>Push · WhatsApp · E-mail</span></div></article></section>
+    <div class="section-grid"><section class="panel"><div class="panel-header"><div class="panel-heading"><h2>Últimos avisos</h2><p>Histórico de comunicações da igreja</p></div><button class="panel-link" data-action="new-announcement">Criar aviso ${ICON('plus')}</button></div><div class="announcement-list" style="padding: 0 22px 22px;">${state.announcements.map(renderAnnouncement).join('')}</div></section><section class="panel info-card"><div class="card-topline"><div><h3>Alcance por canal</h3><p>Veja como a mensagem chega à comunidade.</p></div><div class="icon-tile gold">${ICON('send')}</div></div><div class="split-stat"><div><small>Notificação push</small><strong>${state.metrics.announcements ? '92%' : '0%'}</strong></div><div><small>WhatsApp</small><strong>${state.metrics.announcements ? '78%' : '0%'}</strong></div><div><small>E-mail</small><strong>${state.metrics.announcements ? '54%' : '0%'}</strong></div></div><div class="mini-progress"><span style="width: ${state.metrics.announcements ? 86 : 0}%"></span></div><p class="field-note" style="margin-top: 12px;">A combinação de canais aumenta a chance de cada aviso ser visto.</p><button class="btn btn-secondary btn-full" style="margin-top: 19px;" data-action="channel-settings">${ICON('settings')} Configurar canais</button></section></div>
   `;
 }
 

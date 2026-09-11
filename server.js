@@ -374,6 +374,16 @@ async function seed() {
     for (const item of initialEvents) await query(`INSERT INTO church_events (church_id, title, event_date, event_time, location, event_type, audience)
       VALUES ($1, $2, CURRENT_DATE + ($3 || ' days')::interval, $4, $5, $6, $7)`, [church.id, item[0], item[1], item[2], item[3], item[4], item[5]]);
   }
+  await zeroBethesdaDemoMetrics(church);
+}
+
+async function zeroBethesdaDemoMetrics(church) {
+  if (!church || church.slug !== 'bethesda') return;
+  const marker = (await query("SELECT value FROM platform_settings WHERE key = 'bethesda_demo_metrics_zeroed_v1'")).rows[0];
+  if (marker) return;
+  const memberRows = Number((await query('SELECT COUNT(*)::int AS total FROM members WHERE church_id = $1', [church.id])).rows[0].total || 0);
+  if (memberRows === 0) await query('UPDATE churches SET member_count = 0, updated_at = NOW() WHERE id = $1', [church.id]);
+  await query("INSERT INTO platform_settings (key, value) VALUES ('bethesda_demo_metrics_zeroed_v1', '{\"done\":true}'::jsonb) ON CONFLICT (key) DO NOTHING");
 }
 
 async function seedUser(email, name, password, role, churchId, permissions) {
