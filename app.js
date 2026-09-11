@@ -70,6 +70,7 @@ const defaultState = {
 
 let state = loadState();
 let pendingLogoImage = null;
+let appearanceSaveTimer = null;
 let churchAuthReady = false;
 const viewHistory = [];
 
@@ -138,6 +139,8 @@ async function loadRemoteChurchState(user) {
   const membersPayload = results[3].payload || {};
   const leadersPayload = results[4].payload || {};
   const church = settingsPayload.church;
+  const localChurch = (state.churches || []).find(item => item.id === church?.id || item.slug === church?.slug || item.name === church?.name);
+  const serverPublicSettings = church?.public_settings && typeof church.public_settings === 'object' ? church.public_settings : {};
   if (church) {
     state.activeChurchId = church.id;
     state.churches = [{
@@ -149,16 +152,16 @@ async function loadRemoteChurchState(user) {
       pastors: church.pastors || '',
       description: church.description || '',
       initials: initials(church.name),
-      logoSymbol: church.public_settings?.logoSymbol || initials(church.name).slice(0, 2),
-      logoImage: church.logo_url || (String(church.slug || '').toLowerCase() === 'bethesda' ? 'bethesda-logo.png' : ''),
-      appearance: { ...DEFAULT_APPEARANCE, ...(church.public_settings?.appearance || {}) },
-      publicSettings: { visible: true, ...(church.public_settings || {}) },
+      logoSymbol: serverPublicSettings.logoSymbol || localChurch?.logoSymbol || initials(church.name).slice(0, 2),
+      logoImage: church.logo_url || localChurch?.logoImage || (String(church.slug || '').toLowerCase() === 'bethesda' ? 'bethesda-logo.png' : ''),
+      appearance: { ...DEFAULT_APPEARANCE, ...(localChurch?.appearance || {}), ...(serverPublicSettings.appearance || {}) },
+      publicSettings: { visible: true, ...(localChurch?.publicSettings || {}), ...serverPublicSettings },
       members: Number(church.member_count || 0),
       status: church.status === 'blocked' ? 'Bloqueada' : 'Ativa',
       plan: church.plan_id || 'cuidado'
     }];
   }
-  if (church?.public_settings?.growthGoals) state.growthGoals = { ...(state.growthGoals || {}), ...church.public_settings.growthGoals };
+  if (serverPublicSettings.growthGoals) state.growthGoals = { ...(state.growthGoals || {}), ...serverPublicSettings.growthGoals };
   if (results[1].ok) state.visitors = (visitorsPayload.visitors || []).map(mapApiVisitor);
   if (results[2].ok) state.events = (eventsPayload.events || []).map(mapApiEvent);
   if (results[3].ok) state.members = (membersPayload.members || []).map(mapApiMember);
@@ -460,7 +463,22 @@ function applyAppearanceFromControls() {
   if (primaryText) primaryText.value = church.appearance.primary.toUpperCase();
   if (accentText) accentText.value = church.appearance.accent.toUpperCase();
   applyAppearance();
-  saveState();
+  saveState('Aparência atualizada localmente');
+  if (churchAuthReady && sessionStorage.getItem(CHURCH_TOKEN_KEY)) queueAppearanceSave();
+}
+function queueAppearanceSave() {
+  clearTimeout(appearanceSaveTimer);
+  appearanceSaveTimer = setTimeout(async () => {
+    const church = getActiveChurch();
+    if (!church || !churchAuthReady || !sessionStorage.getItem(CHURCH_TOKEN_KEY)) return;
+    const publicSettings = { ...(church.publicSettings || {}), appearance: { ...church.appearance }, logoSymbol: church.logoSymbol || initials(church.name) };
+    try {
+      await apiRequest('/api/church/settings', { method: 'PUT', body: { name: church.name, city: church.city, phone: church.phone || '', pastors: church.pastors || '', description: church.description || '', logoUrl: church.logoImage || '', publicSettings } });
+      showToast('Aparência salva no banco da igreja.');
+    } catch (error) {
+      showToast(`A aparência ficou apenas neste navegador: ${error.message}`, 'error');
+    }
+  }, 650);
 }
 function applyPalette(key) {
   const palette = PALETTES[key];
@@ -1154,6 +1172,7 @@ async function handleSubmit(event) {
     const publicValue = (key, fallback = '') => String(publicData.get(key) ?? fallback).trim();
     const publicSettings = { ...(church.publicSettings || {}), visible: publicForm ? publicForm.querySelector('[name="publicVisible"]')?.checked !== false : (church.publicSettings?.visible !== false), headline: publicValue('publicHeadline', church.description || ''), address: publicValue('publicAddress', church.city || ''), hours: publicValue('publicHours', 'Domingos às 19h'), instagram: publicValue('publicInstagram', ''), facebook: publicValue('publicFacebook', ''), youtube: publicValue('publicYoutube', ''), cta: publicValue('publicCta', 'Venha nos visitar'), logoSymbol: church.logoSymbol || initials(church.name), appearance: { ...DEFAULT_APPEARANCE, ...(church.appearance || {}) } };
     church.publicSettings = publicSettings;
+    clearTimeout(appearanceSaveTimer);
     try {
       await apiRequest('/api/church/settings', { method: 'PUT', body: { name: church.name, city: church.city, phone: church.phone, pastors: church.pastors, description: church.description, logoUrl: church.logoImage || '', publicSettings } });
       saveState('Identidade, aparência e página pública atualizadas');
