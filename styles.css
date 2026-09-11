@@ -45,14 +45,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .app-shell { min-height: 100vh; display: flex; }
 .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 30; width: var(--sidebar-width); background: var(--ink); color: #fff; display: flex; flex-direction: column; padding: 26px 16px 18px; overflow-y: auto; }
-.brand-row { display: flex; align-items: center; gap: 11px; padding: 0 10px 25px; }
+.brand-row { display: flex; align-items: center; justify-content: center; gap: 11px; padding: 0 10px 25px; position: relative; }
 .brand-mark { position: relative; width: 37px; height: 37px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(135deg, var(--gold-2), var(--copper)); color: var(--ink); font-family: var(--font-display); font-size: 23px; font-weight: 700; box-shadow: 0 5px 20px rgba(215,168,75,.22); }
 .brand-mark:after { content: ""; position: absolute; inset: 4px; border: 1px solid rgba(20,20,20,.3); border-radius: 9px; pointer-events: none; }
 .brand-mark img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .brand-copy { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-kicker { color: #a4a29d; font-size: 8px; letter-spacing: .16em; font-weight: 700; margin-bottom: 4px; }
 .brand-copy strong { font-family: var(--font-display); font-size: 22px; letter-spacing: -.02em; font-weight: 600; }
-.sidebar-close { display: none; margin-left: auto; }
+.sidebar-close { display: none; position: absolute; right: 10px; top: 0; }
 .icon-btn { width: 36px; height: 36px; border: 0; border-radius: 10px; display: inline-grid; place-items: center; color: inherit; background: transparent; transition: background .2s, color .2s, transform .2s; }
 .icon-btn:hover { background: rgba(255,255,255,.08); }
 .icon-btn:active { transform: scale(.96); }
@@ -95,7 +95,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .topbar-left, .topbar-actions, .breadcrumb, .top-profile, .search-trigger, .topbar-church { display: flex; align-items: center; }
 .topbar-left { min-width: 0; }
 .breadcrumb { gap: 8px; color: var(--muted-2); font-size: 12px; }
-.topbar-church { gap: 10px; margin-left: auto; margin-right: 28px; padding: 5px 12px 5px 6px; border: 1px solid #e8e2d7; border-radius: 12px; background: rgba(255,255,255,.46); }
+.topbar-church { gap: 10px; margin: 0; padding: 5px 12px 5px 6px; border: 1px solid #e8e2d7; border-radius: 12px; background: rgba(255,255,255,.46); position: absolute; left: 50%; transform: translateX(-50%); }
 .topbar-church-mark { position: relative; width: 29px; height: 29px; display: grid; place-items: center; border-radius: 9px; background: linear-gradient(135deg, var(--gold-2), var(--copper)); color: var(--ink); font-family: var(--font-display); font-size: 18px; font-weight: 700; }
 .topbar-church-mark:after { content: ""; position: absolute; inset: 3px; border: 1px solid rgba(20,20,20,.3); border-radius: 7px; pointer-events: none; }
 .topbar-church-mark img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
