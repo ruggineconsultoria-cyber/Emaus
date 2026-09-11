@@ -149,7 +149,7 @@ async function loadRemoteChurchState(user) {
       pastors: church.pastors || '',
       description: church.description || '',
       initials: initials(church.name),
-      logoSymbol: initials(church.name).slice(0, 2),
+      logoSymbol: church.public_settings?.logoSymbol || initials(church.name).slice(0, 2),
       logoImage: church.logo_url || (String(church.slug || '').toLowerCase() === 'bethesda' ? 'bethesda-logo.png' : ''),
       appearance: { ...DEFAULT_APPEARANCE, ...(church.public_settings?.appearance || {}) },
       publicSettings: { visible: true, ...(church.public_settings || {}) },
@@ -1152,11 +1152,16 @@ async function handleSubmit(event) {
     const publicForm = document.querySelector('[data-public-settings-form]');
     const publicData = publicForm ? new FormData(publicForm) : data;
     const publicValue = (key, fallback = '') => String(publicData.get(key) ?? fallback).trim();
-    const publicSettings = { ...(church.publicSettings || {}), visible: publicForm ? publicForm.querySelector('[name="publicVisible"]')?.checked !== false : (church.publicSettings?.visible !== false), headline: publicValue('publicHeadline', church.description || ''), address: publicValue('publicAddress', church.city || ''), hours: publicValue('publicHours', 'Domingos às 19h'), instagram: publicValue('publicInstagram', ''), facebook: publicValue('publicFacebook', ''), youtube: publicValue('publicYoutube', ''), cta: publicValue('publicCta', 'Venha nos visitar') };
+    const publicSettings = { ...(church.publicSettings || {}), visible: publicForm ? publicForm.querySelector('[name="publicVisible"]')?.checked !== false : (church.publicSettings?.visible !== false), headline: publicValue('publicHeadline', church.description || ''), address: publicValue('publicAddress', church.city || ''), hours: publicValue('publicHours', 'Domingos às 19h'), instagram: publicValue('publicInstagram', ''), facebook: publicValue('publicFacebook', ''), youtube: publicValue('publicYoutube', ''), cta: publicValue('publicCta', 'Venha nos visitar'), logoSymbol: church.logoSymbol || initials(church.name), appearance: { ...DEFAULT_APPEARANCE, ...(church.appearance || {}) } };
     church.publicSettings = publicSettings;
-    apiRequest('/api/church/settings', { method: 'PUT', body: { name: church.name, city: church.city, phone: church.phone, pastors: church.pastors, description: church.description, logoUrl: church.logoImage || '', publicSettings } })
-      .then(() => { saveState('Identidade e página pública da igreja atualizadas'); render(); showToast('Identidade e página pública atualizadas no banco.'); })
-      .catch(error => showToast(`Não foi possível salvar a identidade: ${error.message}`, 'error'));
+    try {
+      await apiRequest('/api/church/settings', { method: 'PUT', body: { name: church.name, city: church.city, phone: church.phone, pastors: church.pastors, description: church.description, logoUrl: church.logoImage || '', publicSettings } });
+      saveState('Identidade, aparência e página pública atualizadas');
+      render();
+      showToast('Alterações salvas no banco da igreja.');
+    } catch (error) {
+      showToast(`Não foi possível salvar as alterações: ${error.message}`, 'error');
+    }
   }
 }
 

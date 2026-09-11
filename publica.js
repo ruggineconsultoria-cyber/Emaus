@@ -24,7 +24,7 @@ function setText(id, value, fallback = '') {
   const element = document.getElementById(id);
   if (element) element.textContent = value || fallback;
 }
-function setLogo(symbolId, imageId, church) {
+function setLogo(symbolId, imageId, church, fallbackSymbol = '') {
   const symbol = document.getElementById(symbolId);
   const image = document.getElementById(imageId);
   const source = assetUrl(church.logo_url, church.slug);
@@ -32,7 +32,7 @@ function setLogo(symbolId, imageId, church) {
     if (symbol) symbol.hidden = true;
     if (image) { image.hidden = false; image.src = source; image.alt = `Logo da ${church.name}`; }
   } else {
-    if (symbol) { symbol.hidden = false; symbol.textContent = String(church.name || 'I').trim().slice(0, 2).toUpperCase(); }
+    if (symbol) { symbol.hidden = false; symbol.textContent = String(fallbackSymbol || church.name || 'I').trim().slice(0, 2).toUpperCase(); }
     if (image) image.hidden = true;
   }
 }
@@ -80,8 +80,8 @@ function renderPage(payload) {
   setText('footerName', church.name, 'Igreja');
   document.title = `${church.name || 'Igreja'} · Emaús`;
   ['headerCta', 'heroCta', 'contactCta'].forEach(id => { const el = document.getElementById(id); if (el) { el.firstChild.nodeValue = `${cta} `; } });
-  setLogo('brandSymbol', 'brandImage', church);
-  setLogo('heroSymbol', 'heroImage', church);
+  setLogo('brandSymbol', 'brandImage', church, settings.logoSymbol || '');
+  setLogo('heroSymbol', 'heroImage', church, settings.logoSymbol || '');
   renderEvents(payload.events || []);
   renderSocials(settings);
   setText('footerYear', String(new Date().getFullYear()));
